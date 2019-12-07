@@ -17,9 +17,15 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="intproc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="harness.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="intproc.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -34,6 +40,12 @@
       <Filter>Resource Files</Filter>
     </Text>
     <Text Include="data\day5.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day6.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day6t.txt">
       <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>

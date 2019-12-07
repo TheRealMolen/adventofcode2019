@@ -144,15 +144,19 @@
   <ItemGroup>
     <ClCompile Include="harness.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="intproc.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="harness.h" />
+    <ClInclude Include="intproc.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="data\day1.txt" />
     <Text Include="data\day2.txt" />
     <Text Include="data\day3.txt" />
     <Text Include="data\day5.txt" />
+    <Text Include="data\day6.txt" />
+    <Text Include="data\day6t.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
