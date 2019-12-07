@@ -53,8 +53,12 @@ int day1_2(const stringlist& module_sizes)
 
 class IntProc
 {
-    size_t pc;
-    vector<size_t> mem;
+public:
+    typedef int64_t word_t;
+
+private:
+    word_t pc;
+    vector<word_t> mem;
 
     friend ostream& operator<<(ostream& os, const IntProc& ip);
     
@@ -73,62 +77,151 @@ public:
             }
 
             int i = atoi(in.c_str() + start);
-            if (i < 0)
-            {
-                throw "Invalid initial state: got a negative";
-            }
-
-            mem.push_back((size_t)i);
+            mem.push_back(i);
             start = sep + 1;
         } while (sep != string::npos);
     }
 
-    size_t fetch(size_t addr) const
+    word_t fetch(word_t addr, int mode = 0) const
     {
-        if (addr >= mem.size())
+        // mode == 1 means immediate
+        if (mode)
+        {
+            return addr;
+        }
+
+        if (addr < 0 || (size_t)addr >= mem.size())
         {
             throw "IntProc:ADDR_VIOLATION";
         }
-        return mem[addr];
+        return mem[(size_t)addr];
     }
 
-    void store(size_t addr, size_t val)
+    void store(word_t addr, word_t val)
     {
-        if (addr >= mem.size())
+        if (addr < 0 || (size_t)addr >= mem.size())
         {
             throw "IntProc:ADDR_VIOLATION";
         }
-        mem[addr] = val;
+        mem[(size_t)addr] = val;
     }
 
-    bool run()
+    static const int operandmodes[];
+    int calc_op_mode(word_t instr, int opnum)
     {
+        return (instr / operandmodes[opnum]) % 10;
+    }
+
+    word_t next_input;
+    word_t read_input()
+    {
+        return next_input;
+    }
+
+    word_t last_output;
+    void output(word_t val)
+    {
+        cout << "IntProc   OUTPUT: " << val << "   @ pc " << pc << endl;
+        last_output = val;
+    }
+
+    bool run(word_t input = 1)
+    {
+        next_input = input;
+
         for (;;)
         {
             auto instr = fetch(pc);
-            switch (instr)
+            auto opcode = instr % 100;
+            switch (opcode)
             {
-            case 1:
+            case 1: // add
             {
-                auto opA = fetch(fetch(pc + 1));
-                auto opB = fetch(fetch(pc + 2));
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                auto opB = fetch(fetch(pc + 2), calc_op_mode(instr, 1));
                 auto addrOut = fetch(pc + 3);
                 store(addrOut, opA + opB);
                 pc += 4;
                 break;
             }
 
-            case 2:
+            case 2: // mul
             {
-                auto opA = fetch(fetch(pc + 1));
-                auto opB = fetch(fetch(pc + 2));
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                auto opB = fetch(fetch(pc + 2), calc_op_mode(instr, 1));
                 auto addrOut = fetch(pc + 3);
                 store(addrOut, opA * opB);
                 pc += 4;
                 break;
             }
 
-            case 99:
+            case 3: // in
+            {
+                auto addrOut = fetch(pc + 1);
+                store(addrOut, read_input());
+                pc += 2;
+                break;
+            }
+
+            case 4: // out
+            {
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                output(opA);
+                pc += 2;
+                break;
+            }
+
+            case 5: // jt
+            {
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                auto opB = fetch(fetch(pc + 2), calc_op_mode(instr, 1));
+                if (opA)
+                {
+                    pc = opB;
+                }
+                else
+                {
+                    pc += 3;
+                }
+                break;
+            }
+
+            case 6: // jnt
+            {
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                auto opB = fetch(fetch(pc + 2), calc_op_mode(instr, 1));
+                if (!opA)
+                {
+                    pc = opB;
+                }
+                else
+                {
+                    pc += 3;
+                }
+                break;
+            }
+
+            case 7: // slt
+            {
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                auto opB = fetch(fetch(pc + 2), calc_op_mode(instr, 1));
+                auto addrOut = fetch(pc + 3);
+                store(addrOut, (opA < opB) ? 1 : 0);
+                pc += 4;
+                break;
+            }
+
+            case 8: // seq
+            {
+                auto opA = fetch(fetch(pc + 1), calc_op_mode(instr, 0));
+                auto opB = fetch(fetch(pc + 2), calc_op_mode(instr, 1));
+                auto addrOut = fetch(pc + 3);
+                store(addrOut, (opA == opB) ? 1 : 0);
+                pc += 4;
+                break;
+            }
+
+            case 99: // hlt
                 return true;
 
             default:
@@ -137,7 +230,83 @@ public:
             }
         }
     }
+
+
+    void dump()
+    {
+        for (;;)
+        {
+            cout << pc << "\t";
+
+            auto instr = fetch(pc);
+            auto opcode = instr % 100;
+            switch (opcode)
+            {
+            case 1: // add
+                cout << "add " << (calc_op_mode(instr, 0) ? "#" : "") << fetch(pc + 1) << ", " << (calc_op_mode(instr, 1) ? "#" : "") << fetch(pc + 2) << ", " << fetch(pc + 3) << endl;
+                pc += 4;
+                break;
+
+            case 2: // mul
+                cout << "mul " << (calc_op_mode(instr, 0) ? "#" : "") << fetch(pc + 1) << ", " << (calc_op_mode(instr, 1) ? "#" : "") << fetch(pc + 2) << ", " << fetch(pc + 3) << endl;
+                pc += 4;
+                break;
+
+            case 3: // in
+                cout << "in  " << fetch(pc + 1) << endl;
+                pc += 2;
+                break;
+
+            case 4: // out
+                cout << "out " << fetch(pc + 1) << endl;
+                pc += 2;
+                break;
+
+            case 5: // jt
+                cout << "jt  " << (calc_op_mode(instr, 0) ? "#" : "") << fetch(pc + 1) << ", " << (calc_op_mode(instr, 1) ? "#" : "") << fetch(pc + 2) << endl;
+                pc += 3;
+                break;
+
+            case 6: // jnt
+                cout << "jnt " << (calc_op_mode(instr, 0) ? "#" : "") << fetch(pc + 1) << ", " << (calc_op_mode(instr, 1) ? "#" : "") << fetch(pc + 2) << endl;
+                pc += 3;
+                break;
+
+            case 7: // slt
+                cout << "slt " << (calc_op_mode(instr, 0) ? "#" : "") << fetch(pc + 1) << ", " << (calc_op_mode(instr, 1) ? "#" : "") << fetch(pc + 2) << ", " << fetch(pc + 3) << endl;
+                pc += 4;
+                break;
+
+            case 8: // seq
+                cout << "seq " << (calc_op_mode(instr, 0) ? "#" : "") << fetch(pc + 1) << ", " << (calc_op_mode(instr, 1) ? "#" : "") << fetch(pc + 2) << ", " << fetch(pc + 3) << endl;
+                pc += 4;
+                break;
+
+            case 99: // hlt
+                cout << "hlt" << endl;
+                cout << ".data   ";
+                for (pc++; pc < (word_t)mem.size(); pc++)
+                {
+                    cout << fetch(pc) << ' ';
+                }
+                cout << endl;
+                break;
+
+            default:
+                cout << "Unknown instruction " << instr << endl;
+                return;
+            }
+
+            if (pc >= (word_t)mem.size())
+            {
+                cout << "-------------------" << endl;
+                break;
+            }
+        }
+    }
 };
+const int IntProc::operandmodes[] = { 100, 1000, 10000 };
+
 
 ostream& operator<<(ostream& os, const IntProc& ip)
 {
@@ -165,7 +334,7 @@ string day2(const string& initial)
 }
 
 
-size_t day2Hcf(const string& initial, size_t noun, size_t verb)
+size_t day2Hcf(const string& initial, IntProc::word_t noun, IntProc::word_t verb)
 {
     IntProc ip(initial);
     ip.store(1, noun);
@@ -176,11 +345,11 @@ size_t day2Hcf(const string& initial, size_t noun, size_t verb)
     return ip.fetch(0);
 }
 
-size_t day2_2(const string& initial)
+IntProc::word_t day2_2(const string& initial)
 {
-    for (size_t verb = 0; verb < 100; verb++)
+    for (IntProc::word_t verb = 0; verb < 100; verb++)
     {
-        for (size_t noun = 0; noun < 100; noun++)
+        for (IntProc::word_t noun = 0; noun < 100; noun++)
         {
             if (day2Hcf(initial, noun, verb) == 19690720)
             {
@@ -188,7 +357,7 @@ size_t day2_2(const string& initial)
             }
         }
     }
-    return 999999999u;
+    return 999999999;
 }
 
 
@@ -400,6 +569,29 @@ int day4_2(int lo, int hi)
 
 // -------------------------------------------------------------------
 
+IntProc::word_t day5(const string& initial)
+{
+    cout << "INITIALISING T.E.S.T...." << endl;
+    IntProc ip(initial);
+    ip.run();
+    return ip.last_output;
+}
+
+IntProc::word_t day5_2(const string& initial, IntProc::word_t input)
+{
+    IntProc ip(initial);
+    ip.run(input);
+    return ip.last_output;
+}
+
+void ip_dump(const string& initial)
+{
+    IntProc ip(initial);
+    ip.dump();
+}
+
+// -------------------------------------------------------------------
+
 int main()
 {
     initcolours();
@@ -450,6 +642,27 @@ int main()
     test<bool>(false, d4_is_code_valider(123444));
     test<bool>(true, d4_is_code_valider(111122));
     gogogo(day4_2(193651, 649729));
+
+
+    gogogo(day5(LOADSTR(5)));
+
+    test<IntProc::word_t>(1, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 8));
+    test<IntProc::word_t>(0, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 7));
+    test<IntProc::word_t>(1, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 3));
+    test<IntProc::word_t>(0, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 10));
+    test<IntProc::word_t>(1, day5_2("3,3,1108,-1,8,3,4,3,99", 8));
+    test<IntProc::word_t>(0, day5_2("3,3,1108,-1,8,3,4,3,99", 10));
+    test<IntProc::word_t>(1, day5_2("3,3,1107,-1,8,3,4,3,99", 1));
+    test<IntProc::word_t>(0, day5_2("3,3,1107,-1,8,3,4,3,99", 10000));
+
+    test<IntProc::word_t>(1, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 1234));
+    test<IntProc::word_t>(0, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 0));
+    test<IntProc::word_t>(1, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 1234));
+    test<IntProc::word_t>(0, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0));
+
+    //ip_dump("3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99");
+
+    gogogo(day5_2(LOADSTR(5), 5));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
