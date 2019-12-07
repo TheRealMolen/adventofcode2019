@@ -148,6 +148,9 @@
   <ItemGroup>
     <ClInclude Include="harness.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="data\day1.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
