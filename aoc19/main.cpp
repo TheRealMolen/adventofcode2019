@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <ctime>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -273,15 +274,19 @@ size_t day3_2(const stringlist& wires)
     d3_trace_wire(*(it_wire++), wire1);
     d3_trace_wire(*(it_wire++), wire2);
 
+    map<uint64_t, size_t> w2_lengths;
+    for (size_t i = 0; i < wire2.size(); ++i)
+        w2_lengths.insert(make_pair(wire2[i], i + 1));
+
     size_t shortest = ~0u;
     for (auto it1 = wire1.begin(); it1 != wire1.end(); ++it1)
     {
         auto p1 = *it1;
 
-        auto it2 = find(wire2.begin(), wire2.end(), p1);
-        if (it2 != wire2.end())
+        auto it2 = w2_lengths.find(p1);
+        if (it2 != w2_lengths.end())
         {
-            size_t dist = 1 + distance(wire1.begin(), it1) + 1 + distance(wire2.begin(), it2);
+            size_t dist = 1 + distance(wire1.begin(), it1) + it2->second;
             if (dist < shortest)
             {
                 shortest = dist;
@@ -290,6 +295,106 @@ size_t day3_2(const stringlist& wires)
     }
 
     return shortest;
+}
+
+
+// -------------------------------------------------------------------
+
+const int D4_DIGITS = 6;
+inline bool d4_is_code_valid(int code)
+{
+    int digits[D4_DIGITS];
+    for (int i = 0; i < D4_DIGITS; ++i)
+    {
+        digits[(D4_DIGITS - 1) - i] = code % 10;
+        code /= 10;
+    }
+
+    for (int i = 0; i < D4_DIGITS - 1; ++i)
+    {
+        if (digits[i + 1] < digits[i])
+            return false;
+    }
+
+    bool found_dupe = false;
+    for (int i = 0; i < D4_DIGITS - 1; ++i)
+    {
+        if (digits[i + 1] == digits[i])
+        {
+            found_dupe = true;
+            break;
+        }
+    }
+
+    return found_dupe;
+}
+inline bool d4_is_code_valider(int code)
+{
+    int digits[D4_DIGITS];
+    for (int i = 0; i < D4_DIGITS; ++i)
+    {
+        digits[(D4_DIGITS - 1) - i] = code % 10;
+        code /= 10;
+    }
+
+    for (int i = 0; i < D4_DIGITS - 1; ++i)
+    {
+        if (digits[i + 1] < digits[i])
+            return false;
+    }
+
+    bool found_dupe = false;
+    for (int i = 0; i < D4_DIGITS - 1; ++i)
+    {
+        if (digits[i + 1] == digits[i])
+        {
+            if (i == D4_DIGITS - 2 || digits[i + 2] != digits[i])
+            {
+                found_dupe = true;
+                break;
+            }
+            else
+            {
+                // skip the whole run
+                auto run = digits[i];
+                do {
+                    i++;
+                } while (i < D4_DIGITS - 2 && digits[i+1] == run);
+            }
+        }
+    }
+
+    return found_dupe;
+}
+
+int day4(int lo, int hi)
+{
+    int total = 0;
+
+    for (int c = lo; c < hi; ++c)
+    {
+        if (d4_is_code_valid(c))
+        {
+            total++;
+        }
+    }
+
+    return total;
+}
+
+int day4_2(int lo, int hi)
+{
+    int total = 0;
+
+    for (int c = lo; c < hi; ++c)
+    {
+        if (d4_is_code_valider(c))
+        {
+            total++;
+        }
+    }
+
+    return total;
 }
 
 
@@ -333,7 +438,18 @@ int main()
     test<size_t>(30, day3_2(READ("R8,U5,L5,D3\nU7,R6,D4,L4")));
     test<size_t>(610, day3_2(READ("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83")));
     test<size_t>(410, day3_2(READ("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7")));
-    nonono(day3_2(LOAD(3)));
+    nononoD(day3_2(LOAD(3)));
+
+
+    test<bool>(true, d4_is_code_valid(111111));
+    test<bool>(false, d4_is_code_valid(223450));
+    test<bool>(false, d4_is_code_valid(123789));
+    gogogo(day4(193651, 649729));
+
+    test<bool>(true, d4_is_code_valider(112233));
+    test<bool>(false, d4_is_code_valider(123444));
+    test<bool>(true, d4_is_code_valider(111122));
+    gogogo(day4_2(193651, 649729));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
