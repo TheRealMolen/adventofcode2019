@@ -322,6 +322,14 @@ void ip_dump(const string& initial)
 
 // -------------------------------------------------------------------
 
+struct d6_orbiter
+{
+    string name;
+    d6_orbiter* parent;
+    size_t depth;
+    vector<d6_orbiter> children;
+};
+
 int day6(const stringlist& input)
 {
     map<string, string> orbits;
@@ -332,6 +340,8 @@ int day6(const stringlist& input)
         string orbiter = line.substr(sep + 1);
         orbits.insert(make_pair(centre, orbiter));
     }
+
+    d6_orbiter com;
 
     return -1;
 }
@@ -408,6 +418,9 @@ int main()
     test<IntProc::word_t>(0, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0));
     //ip_dump("3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99");
     gogogo(day5_2(LOADSTR(5), 5));
+
+
+    test(42, day6(LOAD(6t)));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
