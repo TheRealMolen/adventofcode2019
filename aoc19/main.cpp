@@ -323,60 +323,122 @@ void ip_dump(const string& initial)
 
 // -------------------------------------------------------------------
 
-struct d6_orbiter
+struct d6_planet
 {
-    string name;
-    string centre;
-    int depth;
-    vector<d6_orbiter> children;
+    string parent;
+    vector<string> children;
 
-    d6_orbiter() {/**/}
-    d6_orbiter(const string& name, const string& centre) : name(name), centre(centre), depth(-1) {/**/}
+    d6_planet() {/**/}
+    d6_planet(const string& parent, vector<string>& children) : parent(parent), children(children){/**/}
 };
 
-int day6(const stringlist& input)
+int d6_count_orbits(const string& start, const map<string, d6_planet>& subtrees, int depth=0)
 {
-    // assemble as much as we can on the way through
-    map<string, d6_orbiter> subtrees;
+    auto it = subtrees.find(start);
+    if (it == subtrees.end())
+    {
+        throw "couldn't find child...";
+    }
+
+    // the total starts with our depth
+    int total = depth;
+
+    // then we add on the totals for all our children
+    for (auto& childname : it->second.children)
+    {
+        total += d6_count_orbits(childname, subtrees, depth + 1);
+    }
+
+    return total;
+}
+
+void d6_parse_subtrees(const stringlist& input, map<string, d6_planet>& out_subtrees)
+{
+    // capture all the parent->children relationships in a flat structure
+    // this is because the input data can be in any order
     for (auto line : input)
     {
         auto sep = line.find(')');
+        if (sep == string::npos)
+            continue;
+
         string centre = line.substr(0, sep);
         string orbiter = line.substr(sep + 1);
 
-        auto it_parent = subtrees.find(centre);
-        if (it_parent != subtrees.end())
+        // ensure we have a record for centre that includes orbiter
+        auto it_centre = out_subtrees.find(centre);
+        if (it_centre == out_subtrees.end())
         {
-            it_parent->second.children.emplace_back(orbiter, centre);
+            out_subtrees.try_emplace(centre, "", vector<string>{ orbiter });
         }
         else
         {
-            subtrees.try_emplace(orbiter, orbiter, centre);
+            it_centre->second.children.emplace_back(orbiter);
         }
-    }
 
-    // assemble the rest of the tree
-    while (subtrees.size() > 1)
-    {
-        for (auto it = subtrees.begin(); it != subtrees.end();)
+        // ensure we have a record for orbiter
+        auto it_orbiter = out_subtrees.find(orbiter);
+        if (it_orbiter == out_subtrees.end())
         {
-            auto it_parent = subtrees.find(it->second.centre);
-            if (it_parent != subtrees.end())
-            {
-                auto& parent = it_parent->second;
-                parent.children.emplace_back(move(it->second));
-                it = subtrees.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
+            out_subtrees.emplace(orbiter, d6_planet( centre, vector<string>{}));
         }
+        else
+        {
+            it_orbiter->second.parent = centre;
+        }
+    }
+}
 
-        cout << "collapsed subtrees down to " << subtrees.size() << endl;
+void d6_find_path(const string& start, const string& end, const map<string, d6_planet>& subtrees, vector<string>& out_path)
+{
+    out_path.clear();
+
+    auto it = subtrees.find(end);
+    while (it->first != start)
+    {
+        out_path.emplace_back(it->first);
+        it = subtrees.find(it->second.parent);
+    }
+    out_path.emplace_back(it->first);
+    reverse(out_path.begin(), out_path.end());
+}
+
+size_t d6_count_transfers(const string& start, const string& end, const map<string, d6_planet>& subtrees)
+{
+    vector<string> path_to_start;
+    vector<string> path_to_end;
+    d6_find_path("COM", start, subtrees, path_to_start);
+    d6_find_path("COM", end, subtrees, path_to_end);
+
+    path_to_start.pop_back();
+    path_to_end.pop_back();
+    size_t shared = 0;
+    auto it_s = path_to_start.begin();
+    auto it_e = path_to_end.begin();
+    while(*it_s == *it_e && it_s != path_to_start.end() && it_e != path_to_end.end())
+    {
+        ++it_s;
+        ++it_e;
     }
 
-    return -1;
+    return distance(it_s, path_to_start.end()) + distance(it_e, path_to_end.end());
+}
+
+
+int day6(const stringlist& input)
+{
+    map<string, d6_planet> subtrees;
+    d6_parse_subtrees(input, subtrees);
+
+    return d6_count_orbits("COM", subtrees);
+}
+
+size_t day6_2(const stringlist& input)
+{
+    map<string, d6_planet> subtrees;
+    d6_parse_subtrees(input, subtrees);
+
+    return d6_count_transfers("YOU", "SAN", subtrees);
 }
 
 
@@ -454,6 +516,10 @@ int main()
 
 
     test(42, day6(LOAD(6t)));
+    gogogo(day6(LOAD(6)));
+
+    test<size_t>(4, day6_2(LOAD(6t2)));
+    gogogo(day6_2(LOAD(6)));
 
 
     // animate snow falling behind the characters in the console until someone presses a key

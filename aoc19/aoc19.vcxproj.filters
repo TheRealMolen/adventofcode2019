@@ -48,5 +48,8 @@
     <Text Include="data\day6t.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day6t2.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>
