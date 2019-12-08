@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <ctime>
 #include <map>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -325,23 +326,55 @@ void ip_dump(const string& initial)
 struct d6_orbiter
 {
     string name;
-    d6_orbiter* parent;
-    size_t depth;
+    string centre;
+    int depth;
     vector<d6_orbiter> children;
+
+    d6_orbiter() {/**/}
+    d6_orbiter(const string& name, const string& centre) : name(name), centre(centre), depth(-1) {/**/}
 };
 
 int day6(const stringlist& input)
 {
-    map<string, string> orbits;
+    // assemble as much as we can on the way through
+    map<string, d6_orbiter> subtrees;
     for (auto line : input)
     {
         auto sep = line.find(')');
         string centre = line.substr(0, sep);
         string orbiter = line.substr(sep + 1);
-        orbits.insert(make_pair(centre, orbiter));
+
+        auto it_parent = subtrees.find(centre);
+        if (it_parent != subtrees.end())
+        {
+            it_parent->second.children.emplace_back(orbiter, centre);
+        }
+        else
+        {
+            subtrees.try_emplace(orbiter, orbiter, centre);
+        }
     }
 
-    d6_orbiter com;
+    // assemble the rest of the tree
+    while (subtrees.size() > 1)
+    {
+        for (auto it = subtrees.begin(); it != subtrees.end();)
+        {
+            auto it_parent = subtrees.find(it->second.centre);
+            if (it_parent != subtrees.end())
+            {
+                auto& parent = it_parent->second;
+                parent.children.emplace_back(move(it->second));
+                it = subtrees.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        cout << "collapsed subtrees down to " << subtrees.size() << endl;
+    }
 
     return -1;
 }
