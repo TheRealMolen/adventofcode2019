@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <list>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -16,14 +17,23 @@ public:
 private:
     word_t pc;
     vector<word_t> mem;
+    list<word_t> inputs;
 
     friend ostream& operator<<(ostream& os, const IntProc& ip);
 
 public:
+    static void parse(const string& program, vector<word_t>& mem);
+
     IntProc(const string& initial);
+    IntProc(const vector<word_t>& mem);
 
 
-    bool run(word_t input = 1);
+    void append_input(word_t input)
+    {
+        inputs.push_back(input);
+    }
+    void set_input(const list<word_t>& inputs);
+    bool run();
 
     void dump() const;
 
@@ -60,10 +70,15 @@ public:
         return (instr / operandmodes[opnum]) % 10;
     }
 
-    word_t next_input;
+    bool has_input() const
+    {
+        return !inputs.empty();
+    }
     word_t read_input()
     {
-        return next_input;
+        word_t input = inputs.front();
+        inputs.pop_front();
+        return input;
     }
 
     word_t last_output;
@@ -71,7 +86,7 @@ public:
     {
         if (val)
         {
-            cout << "IntProc   OUTPUT: " << val << "   @ pc " << pc << endl;
+            //cout << "IntProc   OUTPUT: " << val << "   @ pc " << pc << endl;
         }
         last_output = val;
     }

@@ -20,10 +20,9 @@ ostream& operator<<(ostream& os, const IntProc& ip)
 }
 
 
-
-IntProc::IntProc(const string& initial) : pc(0)
+void IntProc::parse(const string& program, vector<word_t>& mem)
 {
-    string in(initial);
+    string in(program);
     size_t start = 0;
     size_t sep;
 
@@ -41,10 +40,25 @@ IntProc::IntProc(const string& initial) : pc(0)
 }
 
 
-bool IntProc::run(word_t input)
+IntProc::IntProc(const string& initial) : pc(0), inputs({ 1 })
 {
-    next_input = input;
+    parse(initial, mem);
+}
 
+IntProc::IntProc(const vector<word_t>& mem) : pc(0), mem(mem), inputs({ 1 })
+{
+    /**/
+}
+
+
+void IntProc::set_input(const list<word_t>& inputs)
+{
+    this->inputs = inputs;
+}
+
+
+bool IntProc::run()
+{
     for (;;)
     {
         auto instr = fetch(pc);
@@ -73,6 +87,11 @@ bool IntProc::run(word_t input)
 
         case 3: // in
         {
+            if (!has_input())
+            {
+                return false;
+            }
+
             auto addrOut = fetch(pc + 1);
             store(addrOut, read_input());
             pc += 2;
@@ -141,8 +160,9 @@ bool IntProc::run(word_t input)
             return true;
 
         default:
-            cerr << "IntProc got a wonky instruction " << instr << "@" << pc << "\nfinal state: " << *this << endl;
-            return false;
+            throw "IntProc: BAD_INSTR";
+            //cerr << "IntProc got a wonky instruction " << instr << "@" << pc << "\nfinal state: " << *this << endl;
+            //return false;
         }
     }
 }

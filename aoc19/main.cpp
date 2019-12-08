@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <set>
@@ -311,7 +313,8 @@ IntProc::word_t day5(const string& initial)
 IntProc::word_t day5_2(const string& initial, IntProc::word_t input)
 {
     IntProc ip(initial);
-    ip.run(input);
+    ip.set_input({ input });
+    ip.run();
     return ip.last_output;
 }
 
@@ -444,6 +447,108 @@ size_t day6_2(const stringlist& input)
 
 // -------------------------------------------------------------------
 
+int d7_run_amp(int phase, int input, const vector<IntProc::word_t>& program)
+{
+    IntProc ip(program);
+    ip.set_input({ phase, input });
+    ip.run();
+    return (int)ip.last_output;
+}
+
+int d7_run_amp_chain(const vector<int>& phases, const vector<IntProc::word_t>& program)
+{
+    int output = 0;
+    for( auto p : phases)
+    {
+        output = d7_run_amp(p, output, program);
+    }
+
+    return output;
+}
+
+int day7(const string& input)
+{
+    vector<IntProc::word_t> program;
+    IntProc::parse(input, program);
+
+    int max_thrusters = -1;
+    vector<int> max_phase;
+
+    vector<int> phases = { 0,1,2,3,4 };
+    do {
+        int thrusters = d7_run_amp_chain(phases, program);
+
+        if (thrusters > max_thrusters)
+        {
+            max_phase = phases;
+            max_thrusters = thrusters;
+        }
+    } while (next_permutation(phases.begin(), phases.end()));
+
+    cout << "Max Thrust @ phase setting ";
+    for (auto phase : max_phase)
+        cout << phase;
+    cout << endl;
+
+    return max_thrusters;
+}
+
+
+IntProc::word_t d7_2_run_amp_chain(const vector<int>& phases, const vector<IntProc::word_t>& program)
+{
+    vector<IntProc> amps;
+    for (auto phase : phases)
+    {
+        amps.emplace_back(program);
+        amps.back().set_input({ phase });
+    }
+
+    IntProc::word_t output = 0;
+    bool finished = false;
+    do {
+        for (auto& amp : amps)
+        {
+            amp.append_input(output);
+            if (amp.run())
+            {
+                finished = true;
+            }
+            output = amp.last_output;
+        }
+    } while (!finished);
+
+    return output;
+}
+
+IntProc::word_t day7_2(const string& input)
+{
+    vector<IntProc::word_t> program;
+    IntProc::parse(input, program);
+
+    IntProc::word_t max_thrusters = -1;
+    vector<int> max_phase;
+
+    vector<int> phases = { 5,6,7,8,9 };
+    do {
+        IntProc::word_t thrusters = d7_2_run_amp_chain(phases, program);
+
+        if (thrusters > max_thrusters)
+        {
+            max_phase = phases;
+            max_thrusters = thrusters;
+        }
+    } while (next_permutation(phases.begin(), phases.end()));
+
+    cout << "Max Thrust @ phase setting ";
+    for (auto phase : max_phase)
+        cout << phase;
+    cout << endl;
+
+    return max_thrusters;
+}
+
+// -------------------------------------------------------------------
+
 int main()
 {
     initcolours();
@@ -469,9 +574,9 @@ int main()
     test<string>("2,4,4,5,99,9801", day2("2,4,4,5,99,0"));
     test<string>("30,1,1,4,2,5,6,0,99", day2("1,1,1,4,99,5,6,0,99"));
     test<string>("3500,9,10,70,2,3,11,0,99,30,40,50", day2("1,9,10,3,2,3,11,0,99,30,40,50"));
-    gogogo(day2Hcf(LOADSTR(2), 12, 2));
+    gogogo<size_t>(day2Hcf(LOADSTR(2), 12, 2), 3716250);
 
-    nononoD(day2_2(LOADSTR(2)));
+    nononoD(day2_2(LOADSTR(2)), 6472ll);
 
 
     test<size_t>(6, day3(READ("R8,U5,L5,D3\nU7,R6,D4,L4")));
@@ -496,23 +601,23 @@ int main()
     gogogo(day4_2(193651, 649729));
 
 
-    gogogo(day5(LOADSTR(5)));
+    gogogo(day5(LOADSTR(5)), 7988899ll);
 
-    test<IntProc::word_t>(1, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 8));
-    test<IntProc::word_t>(0, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 7));
-    test<IntProc::word_t>(1, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 3));
-    test<IntProc::word_t>(0, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 10));
-    test<IntProc::word_t>(1, day5_2("3,3,1108,-1,8,3,4,3,99", 8));
-    test<IntProc::word_t>(0, day5_2("3,3,1108,-1,8,3,4,3,99", 10));
-    test<IntProc::word_t>(1, day5_2("3,3,1107,-1,8,3,4,3,99", 1));
-    test<IntProc::word_t>(0, day5_2("3,3,1107,-1,8,3,4,3,99", 10000));
+    test(1ll, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 8));
+    test(0ll, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 7));
+    test(1ll, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 3));
+    test(0ll, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 10));
+    test(1ll, day5_2("3,3,1108,-1,8,3,4,3,99", 8));
+    test(0ll, day5_2("3,3,1108,-1,8,3,4,3,99", 10));
+    test(1ll, day5_2("3,3,1107,-1,8,3,4,3,99", 1));
+    test(0ll, day5_2("3,3,1107,-1,8,3,4,3,99", 10000));
 
-    test<IntProc::word_t>(1, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 1234));
-    test<IntProc::word_t>(0, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 0));
-    test<IntProc::word_t>(1, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 1234));
-    test<IntProc::word_t>(0, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0));
+    test(1ll, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 1234));
+    test(0ll, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 0));
+    test(1ll, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 1234));
+    test(0ll, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0));
     //ip_dump("3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99");
-    gogogo(day5_2(LOADSTR(5), 5));
+    gogogo(day5_2(LOADSTR(5), 5), 13758663ll);
 
 
     test(42, day6(LOAD(6t)));
@@ -520,6 +625,15 @@ int main()
 
     test<size_t>(4, day6_2(LOAD(6t2)));
     gogogo(day6_2(LOAD(6)));
+
+    test(43210, day7("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0"));
+    test(54321, day7("3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0"));
+    test(65210, day7("3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"));
+    gogogo(day7(LOADSTR(7)), 212460);
+
+    test(139629729ll, day7_2("3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"));
+    test(18216ll, day7_2("3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10"));
+    gogogo(day7_2(LOADSTR(7)), 21844737ll);
 
 
     // animate snow falling behind the characters in the console until someone presses a key

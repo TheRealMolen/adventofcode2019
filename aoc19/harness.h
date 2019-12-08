@@ -190,6 +190,17 @@ void gogogo(TResult result)
     gtest = 1;
 }
 
+template<typename TResult>
+void gogogo(TResult result, TResult correct)
+{
+    gogogo(result);
+
+    if (result != correct)
+    {
+        cerr << RED << " !! regression error -> should have been " << YELLOW << correct << endl;
+    }
+}
+
 void skip(const char* message = "cos it's really slow!");
 
 void jumptoday(int day);
@@ -198,9 +209,9 @@ void jumptoday(int day);
 #define nonono(expr) skip()
 
 #ifdef _DEBUG
-#define nononoD(expr) skip()
+#define nononoD(...) skip()
 #else
-#define nononoD(expr) gogogo(expr)
+#define nononoD(...) gogogo(__VA_ARGS__)
 #endif
 
 
