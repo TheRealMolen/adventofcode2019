@@ -549,6 +549,65 @@ IntProc::word_t day7_2(const string& input)
 
 // -------------------------------------------------------------------
 
+int day8(const string& input, int w=25, int h=6)
+{
+    const int cpl = w * h;
+
+    if ((int)input.size() % cpl)
+        throw "bad-sized input";
+
+    int checksum = 0x7ffffff;
+    int fewest0 = 0x7ffffff;
+    for (auto it = input.begin(); it != input.end(); it += cpl)
+    {
+        int num0 = (int)count(it, it + cpl, '0');
+        if (num0 < fewest0)
+        {
+            int num1 = (int)count(it, it + cpl, '1');
+            int num2 = (int)count(it, it + cpl, '2');
+            checksum = num1 * num2;
+            fewest0 = num0;
+        }
+    }
+
+    return checksum;
+}
+
+int day8_2(const string& input, int w = 25, int h = 6)
+{
+    const int cpl = w * h;
+
+    if ((int)input.size() % cpl)
+        throw "bad-sized input";
+    auto nlayers = input.size() / cpl;
+
+    auto it = input.begin();
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x, ++it)
+        {
+            auto itc = it;
+            size_t l = 0;
+            for (; l < nlayers && *itc == '2'; ++l, itc += cpl)
+            {/**/}
+
+            if (l < nlayers)
+            {
+                cout << (*itc == '0' ? ' ' : '#');
+            }
+            else
+            {
+                cout << 'x';
+            }
+        }
+        cout << endl;
+    }
+
+    return 1;
+}
+
+// -------------------------------------------------------------------
+
 int main()
 {
     initcolours();
@@ -634,6 +693,13 @@ int main()
     test(139629729ll, day7_2("3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"));
     test(18216ll, day7_2("3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10"));
     gogogo(day7_2(LOADSTR(7)), 21844737ll);
+
+
+    test(6, day8("000000112220001122", 3, 2));
+    gogogo(day8(LOADSTR(8)));
+
+    test(1, day8_2("0222112222120000", 2, 2));
+    gogogo(day8_2(LOADSTR(8)));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
