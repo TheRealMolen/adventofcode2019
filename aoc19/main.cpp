@@ -70,12 +70,12 @@ string day2(const string& initial)
 size_t day2Hcf(const string& initial, IntProc::word_t noun, IntProc::word_t verb)
 {
     IntProc ip(initial);
-    ip.store(1, noun);
-    ip.store(2, verb);
+    ip.poke(1, noun);
+    ip.poke(2, verb);
 
     ip.run();
 
-    return ip.fetch(0);
+    return ip.peek(0);
 }
 
 IntProc::word_t day2_2(const string& initial)
@@ -307,7 +307,12 @@ IntProc::word_t day5(const string& initial)
     cout << "INITIALISING T.E.S.T...." << endl;
     IntProc ip(initial);
     ip.run();
-    return ip.last_output;
+    IntProc::word_t out;
+    do {
+        out = ip.read_output();
+    } while (ip.has_output());
+
+    return  out;
 }
 
 IntProc::word_t day5_2(const string& initial, IntProc::word_t input)
@@ -315,7 +320,7 @@ IntProc::word_t day5_2(const string& initial, IntProc::word_t input)
     IntProc ip(initial);
     ip.set_input({ input });
     ip.run();
-    return ip.last_output;
+    return ip.read_output();
 }
 
 void ip_dump(const string& initial)
@@ -452,7 +457,7 @@ int d7_run_amp(int phase, int input, const vector<IntProc::word_t>& program)
     IntProc ip(program);
     ip.set_input({ phase, input });
     ip.run();
-    return (int)ip.last_output;
+    return (int)ip.read_output();
 }
 
 int d7_run_amp_chain(const vector<int>& phases, const vector<IntProc::word_t>& program)
@@ -513,7 +518,7 @@ IntProc::word_t d7_2_run_amp_chain(const vector<int>& phases, const vector<IntPr
             {
                 finished = true;
             }
-            output = amp.last_output;
+            output = amp.read_output();
         }
     } while (!finished);
 
@@ -608,6 +613,29 @@ int day8_2(const string& input, int w = 25, int h = 6)
 
 // -------------------------------------------------------------------
 
+string ip_run_capture_output(const string& program, const list<IntProc::word_t>& inputs = { 1 })
+{
+    IntProc ip(program);
+    ip.set_input(inputs);
+    //ip.dump();
+    ip.run();
+
+    ostringstream os;
+    bool first = true;
+    while (ip.has_output())
+    {
+        if (!first)
+            os << ',';
+        first = false;
+        os << ip.read_output();
+    }
+    return os.str();
+}
+
+
+// -------------------------------------------------------------------
+
+
 int main()
 {
     initcolours();
@@ -700,6 +728,15 @@ int main()
 
     test(1, day8_2("0222112222120000", 2, 2));
     gogogo(day8_2(LOADSTR(8)));
+
+    const char* quine = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99";
+    test<string>(quine, ip_run_capture_output(quine));
+    test<size_t>(16, ip_run_capture_output("1102,34915192,34915192,7,4,7,99,0").size());
+    test<string>("1125899906842624", ip_run_capture_output("104, 1125899906842624, 99"));
+    //ip_dump(LOADSTR(9));
+    gogogo<string>(ip_run_capture_output(LOADSTR(9)), "2789104029");
+
+    gogogo<string>(ip_run_capture_output(LOADSTR(9), { 2 }));
 
 
     // animate snow falling behind the characters in the console until someone presses a key

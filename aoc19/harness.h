@@ -197,7 +197,7 @@ void gogogo(TResult result, TResult correct)
 
     if (result != correct)
     {
-        cerr << RED << " !! regression error -> should have been " << YELLOW << correct << endl;
+        cerr << RED << " !! regression error -> should have been " << YELLOW << correct << RESET << endl;
     }
 }
 

@@ -16,36 +16,28 @@ public:
 
 private:
     word_t pc;
+    word_t codesize;
+    word_t rel;
     vector<word_t> mem;
     list<word_t> inputs;
+    list<word_t> outputs;
 
     friend ostream& operator<<(ostream& os, const IntProc& ip);
-
-public:
-    static void parse(const string& program, vector<word_t>& mem);
-
-    IntProc(const string& initial);
-    IntProc(const vector<word_t>& mem);
-
-
-    void append_input(word_t input)
-    {
-        inputs.push_back(input);
-    }
-    void set_input(const list<word_t>& inputs);
-    bool run();
-
-    void dump() const;
-
-
+    static const char* get_mode_str(word_t instr, int opnum);
 
 
     word_t fetch(word_t addr, int mode = 0) const
     {
         // mode == 1 means immediate
-        if (mode)
+        if (mode == 1)
         {
             return addr;
+        }
+
+        // mode == 2 means offset by rel register
+        if (mode == 2)
+        {
+            addr += rel;
         }
 
         if (addr < 0 || (size_t)addr >= mem.size())
@@ -55,8 +47,14 @@ public:
         return mem[(size_t)addr];
     }
 
-    void store(word_t addr, word_t val)
+    void store(word_t addr, word_t val, int mode)
     {
+        // mode == 2 means offset by rel register
+        if (mode == 2)
+        {
+            addr += rel;
+        }
+
         if (addr < 0 || (size_t)addr >= mem.size())
         {
             throw "IntProc:ADDR_VIOLATION";
@@ -81,14 +79,45 @@ public:
         return input;
     }
 
-    word_t last_output;
     void output(word_t val)
     {
-        if (val)
-        {
-            //cout << "IntProc   OUTPUT: " << val << "   @ pc " << pc << endl;
-        }
-        last_output = val;
+        outputs.push_back(val);
+    }
+
+public:
+    static void parse(const string& program, vector<word_t>& mem);
+
+    IntProc(const string& initial);
+    IntProc(const vector<word_t>& mem);
+
+
+    void append_input(word_t input)
+    {
+        inputs.push_back(input);
+    }
+    void set_input(const list<word_t>& inputs);
+    bool run();
+
+    word_t peek(word_t addr) const
+    {
+        return fetch(addr, 0);
+    }
+    void poke(word_t addr, word_t val)
+    {
+        store(addr, val, 0);
+    }
+
+    void dump() const;
+
+    bool has_output() const
+    {
+        return !outputs.empty();
+    }
+    word_t read_output()
+    {
+        auto o = outputs.front();
+        outputs.pop_front();
+        return o;
     }
 
 };
