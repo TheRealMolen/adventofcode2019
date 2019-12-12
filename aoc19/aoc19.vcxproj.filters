@@ -60,6 +60,27 @@
     <Text Include="data\day9.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day10.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day10t.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day10t2.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day10t3.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day10t4.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day10t5.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day10t_2.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">

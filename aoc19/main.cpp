@@ -7,11 +7,12 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 #include "intproc.h"
 
-
+static const float kPI = 3.14159265358979323846f;
 
 // -------------------------------------------------------------------
 
@@ -634,6 +635,239 @@ string ip_run_capture_output(const string& program, const list<IntProc::word_t>&
 
 
 // -------------------------------------------------------------------
+int gcd(int a, int b)
+{
+    while (b != 0)
+    {
+        int t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+struct d10_pt
+{
+    int16_t x, y;
+
+    d10_pt() {/**/}
+    d10_pt(int16_t x, int16_t y) : x(x), y(y) {/**/}
+    d10_pt(initializer_list<int> l) {
+        auto it = l.begin();
+        x = *(it++);
+        y = *it;
+    }
+
+    bool operator==(const d10_pt& rhs) const
+    {
+        return x == rhs.x && y == rhs.y;
+    }
+    bool operator!=(const d10_pt& rhs) const
+    {
+        return x != rhs.x || y != rhs.y;
+    }
+    bool operator<(const d10_pt& rhs) const
+    {
+        if (x < rhs.x)
+            return true;
+        if (x > rhs.x)
+            return false;
+        if (y < rhs.y)
+            return true;
+        return false;
+    }
+    d10_pt& operator+=(const d10_pt& rhs)
+    {
+        x += rhs.x;
+        y += rhs.y;
+        return *this;
+    }
+    d10_pt operator-(const d10_pt& rhs) const
+    {
+        return d10_pt(x - rhs.x, y - rhs.y);
+    }
+
+    void simplify()
+    {
+        int div = abs(gcd(x, y));
+        x /= div;
+        y /= div;
+    }
+};
+
+void d10_read_asteroids(const stringlist& input, set<d10_pt>& out_points)
+{
+    vector<string> lines(input.begin(), input.end());
+    size_t w = lines[0].size();
+    size_t h = lines.size();
+
+    for (size_t y = 0; y < h; ++y)
+    {
+        const string& line = lines[y];
+        auto it = line.begin();
+        for (size_t x = 0; x < w; ++x, ++it)
+        {
+            if (*it != '#')
+                continue;
+
+            out_points.emplace((int)x, (int)y);
+        }
+    }
+}
+
+string day10(const stringlist& input)
+{
+    set<d10_pt> points;
+    d10_read_asteroids(input, points);
+
+    const d10_pt* best = NULL;
+    int most_visible = -1;
+    set<d10_pt> done;
+
+    for (auto& pt : points)
+    {
+        done.clear();
+        done.insert(pt);
+
+        int visible = 0;
+        for (const d10_pt& test : points)
+        {
+            if (done.find(test) != done.end())
+                continue;
+            done.insert(test);
+
+            auto diff = pt - test;
+            diff.simplify();
+            d10_pt t(test);
+            bool blocked = false;
+            for (;;)
+            {
+                t += diff;
+                if (t == pt)
+                    break;
+                if (points.find(t) != points.end())
+                {
+                    blocked = true;
+                    break;
+                }
+            }
+
+            if (!blocked)
+                ++visible;
+        }
+
+        if (visible > most_visible)
+        {
+            most_visible = visible;
+            best = &pt;
+        }
+    }
+
+    ostringstream os;
+    os << most_visible << '@' << best->x << ',' << best->y;
+    return os.str();
+}
+
+struct d10_ast
+{
+    d10_pt pos;
+    float ang;
+
+    d10_ast(const d10_pt& pos, const d10_pt& home) : pos(pos)
+    {
+        d10_pt diff = pos - home;
+        ang = atan2f((float)diff.x, (float)-diff.y);   // intentionally flipped so we're clockwise from north
+        if (ang < 0.0f)
+            ang += 2.0f * kPI;
+    }
+
+    bool operator<(const d10_ast& o) const
+    {
+        return ang < o.ang;
+    }
+};
+
+
+void d10_find_visible(const set<d10_pt> asteroids, const d10_pt& home, set<d10_pt>& out_visible)
+{
+    out_visible.clear();
+
+    set<d10_pt> done;
+    done.insert(home);
+
+    for (const d10_pt& test : asteroids)
+    {
+        if (done.find(test) != done.end())
+            continue;
+        done.insert(test);
+
+        auto diff = home - test;
+        diff.simplify();
+        d10_pt t(test);
+        bool blocked = false;
+        for (;;)
+        {
+            t += diff;
+            if (t == home)
+                break;
+            if (asteroids.find(t) != asteroids.end())
+            {
+                blocked = true;
+                break;
+            }
+        }
+
+        if (!blocked)
+            out_visible.insert(test);
+    }
+}
+
+int day10_2(const stringlist& input, const d10_pt& home, size_t interesting = 1)
+{
+    set<d10_pt> asteroids;
+    d10_read_asteroids(input, asteroids);
+
+    vector<d10_ast> destroyed;
+    destroyed.reserve(asteroids.size());
+
+    set<d10_pt> visible;
+    vector<d10_ast> targets;
+    targets.reserve(asteroids.size());
+    bool found = false;
+    while (!found && !asteroids.empty())
+    {
+        // find the current visible set
+        d10_find_visible(asteroids, home, visible);
+
+        // build a sortable list
+        targets.clear();
+        for (auto ast : visible)
+            targets.emplace_back(ast, home);
+
+        // sort it :)
+        sort(targets.begin(), targets.end());
+
+        // start lasering
+        for (auto itboom = targets.begin(); itboom != targets.end(); ++itboom)
+        {
+            d10_ast& boom = *itboom;
+            asteroids.erase(asteroids.find(boom.pos));
+            destroyed.emplace_back(boom);
+
+            if (destroyed.size() == interesting)
+            {
+                found = true;
+                break;
+            }
+        }
+    }
+
+    auto& last = destroyed.back();
+    return last.pos.x * 100 + last.pos.y;
+}
+
+
+// -------------------------------------------------------------------
 
 
 int main()
@@ -737,6 +971,24 @@ int main()
     gogogo<string>(ip_run_capture_output(LOADSTR(9)), "2789104029");
 
     gogogo<string>(ip_run_capture_output(LOADSTR(9), { 2 }));
+
+
+    test<string>("8@3,4", day10(LOAD(10t)));
+    test<string>("33@5,8", day10(LOAD(10t2)));
+    test<string>("35@1,2", day10(LOAD(10t3)));
+    nD(test<string>("41@6,3", day10(LOAD(10t4))));
+    nD(test<string>("210@11,13", day10(LOAD(10t5))));
+    nononoD(day10(LOAD(10)), string("340@28,29"));
+
+
+    auto d10_2 = LOAD(10t_2);
+    test(801, day10_2(d10_2, { 8, 3 }, 1));
+    test(900, day10_2(d10_2, { 8, 3 }, 2));
+    test(901, day10_2(d10_2, { 8, 3 }, 3));
+    test(1000, day10_2(d10_2, { 8, 3 }, 4));
+    test(203, day10_2(d10_2, { 8, 3 }, 20));
+    test(800, day10_2(d10_2, { 8, 3 }, 31));
+    gogogo(day10_2(LOAD(10), { 28, 29 }, 200), 2628);
 
 
     // animate snow falling behind the characters in the console until someone presses a key

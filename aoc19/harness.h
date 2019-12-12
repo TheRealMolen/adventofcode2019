@@ -210,8 +210,10 @@ void jumptoday(int day);
 
 #ifdef _DEBUG
 #define nononoD(...) skip()
+#define nD(expr)
 #else
 #define nononoD(...) gogogo(__VA_ARGS__)
+#define nD(expr) expr
 #endif
 
 

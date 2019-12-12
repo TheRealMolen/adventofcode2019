@@ -152,6 +152,12 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="data\day1.txt" />
+    <Text Include="data\day10.txt" />
+    <Text Include="data\day10t.txt" />
+    <Text Include="data\day10t2.txt" />
+    <Text Include="data\day10t3.txt" />
+    <Text Include="data\day10t5.txt" />
+    <Text Include="data\day10t_2.txt" />
     <Text Include="data\day2.txt" />
     <Text Include="data\day3.txt" />
     <Text Include="data\day5.txt" />
@@ -161,6 +167,7 @@
     <Text Include="data\day7.txt" />
     <Text Include="data\day8.txt" />
     <Text Include="data\day9.txt" />
+    <Text Include="data\day10t4.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
