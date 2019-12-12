@@ -203,12 +203,12 @@ const char* IntProc::get_mode_str(word_t instr, int opnum)
 }
 
 
-void IntProc::dump() const
+void IntProc::dump(const list<word_t>& entries) const
 {
     map<word_t, string> disasm;
     vector<bool> code;
     code.resize(mem.size(), false);
-    list<word_t> entry_points{ 0 };
+    list<word_t> entry_points(entries);
 
     ostringstream os;
 

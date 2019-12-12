@@ -324,10 +324,10 @@ IntProc::word_t day5_2(const string& initial, IntProc::word_t input)
     return ip.read_output();
 }
 
-void ip_dump(const string& initial)
+void ip_dump(const string& initial, const list<IntProc::word_t>& entries = { 0 })
 {
     IntProc ip(initial);
-    ip.dump();
+    ip.dump(entries);
 }
 
 // -------------------------------------------------------------------
@@ -682,6 +682,10 @@ struct d10_pt
         y += rhs.y;
         return *this;
     }
+    d10_pt operator+(const d10_pt& rhs) const
+    {
+        return d10_pt(x + rhs.x, y + rhs.y);
+    }
     d10_pt operator-(const d10_pt& rhs) const
     {
         return d10_pt(x - rhs.x, y - rhs.y);
@@ -869,6 +873,73 @@ int day10_2(const stringlist& input, const d10_pt& home, size_t interesting = 1)
 
 // -------------------------------------------------------------------
 
+int day11(const string& program, bool start_col = false)
+{
+    IntProc ip(program);
+
+    const size_t hull_hsize = 100;
+    const size_t hull_size = 2 * hull_hsize;
+    vector<bool> colour;
+    vector<bool> painted;
+    colour.resize(hull_size * hull_size, false);
+    painted.resize(hull_size * hull_size, false);
+
+    d10_pt pos(0, 0);
+    d10_pt offs(hull_hsize, hull_hsize);
+    d10_pt wpos = pos + offs;
+    d10_pt minp = wpos;
+    d10_pt maxp = wpos;
+    int facing = 0; // up
+    const vector<d10_pt> dirs{ { 0, 1}, {-1, 0}, {0, -1}, {1, 0} };
+
+    colour[wpos.x + wpos.y * hull_size] = start_col;
+    ip.set_input({ start_col ? 1 : 0 });
+
+    while (!ip.run()) {
+        if (ip.has_output())
+        {
+            // paint & move!
+            bool newcol = ip.read_output() != 0;
+            colour[wpos.x + wpos.y * hull_size] = newcol;
+            painted[wpos.x + wpos.y * hull_size] = true;
+
+            bool turnright = ip.read_output() != 0;
+            if (turnright) {
+                facing = (facing + 4 - 1) & 3;
+            }
+            else {
+                facing = (facing + 1) & 3;
+            }
+            pos += dirs[facing];
+
+            wpos = pos + offs;
+
+            minp.x = min(minp.x, wpos.x);
+            minp.y = min(minp.y, wpos.y);
+            maxp.x = max(maxp.x, wpos.x);
+            maxp.y = max(maxp.y, wpos.y);
+        }
+
+        bool col = colour[wpos.x + wpos.y * hull_size];
+        ip.set_input({ col ? 1 : 0 });
+    }
+
+    for (auto y = maxp.y; y >= minp.y; --y)
+    {
+        auto it = colour.begin() + (minp.x + y * hull_size);
+        auto itp = painted.begin() + (minp.x + y * hull_size);
+        for (auto x = minp.x; x <= maxp.x; ++x, ++it, ++itp)
+        {
+            cout << (*it ? '#' : (*itp ? '.' : ' '));
+        }
+        cout << endl;
+    }
+
+    return (int)count(painted.begin(), painted.end(), true);
+}
+
+// -------------------------------------------------------------------
+
 
 int main()
 {
@@ -989,6 +1060,11 @@ int main()
     test(203, day10_2(d10_2, { 8, 3 }, 20));
     test(800, day10_2(d10_2, { 8, 3 }, 31));
     gogogo(day10_2(LOAD(10), { 28, 29 }, 200), 2628);
+
+
+    // ip_dump(LOADSTR(11), { 0, 471 });
+    gogogo(day11(LOADSTR(11)));
+    gogogo(day11(LOADSTR(11), true));
 
 
     // animate snow falling behind the characters in the console until someone presses a key

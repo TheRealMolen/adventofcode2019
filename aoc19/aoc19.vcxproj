@@ -168,6 +168,7 @@
     <Text Include="data\day8.txt" />
     <Text Include="data\day9.txt" />
     <Text Include="data\day10t4.txt" />
+    <Text Include="data\day11.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />

@@ -81,6 +81,9 @@
     <Text Include="data\day10t_2.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day11.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">

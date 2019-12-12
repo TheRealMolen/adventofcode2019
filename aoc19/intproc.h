@@ -107,7 +107,7 @@ public:
         store(addr, val, 0);
     }
 
-    void dump() const;
+    void dump(const list<word_t>& entries = { 0 }) const;
 
     bool has_output() const
     {
