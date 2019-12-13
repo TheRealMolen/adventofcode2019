@@ -4,6 +4,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <immintrin.h>
 #include <map>
 #include <memory>
 #include <set>
@@ -1001,9 +1002,74 @@ struct d12_moon
         pos += vel;
     }
 };
+
+struct d12_moon4
+{
+    __m128i px, py, pz;
+    __m128i vx, vy, vz;
+
+    d12_moon4(const vector<d12_pt>& i)
+    {
+        px = _mm_set_epi32(i[0].x, i[1].x, i[2].x, i[3].x);
+        py = _mm_set_epi32(i[0].y, i[1].y, i[2].y, i[3].y);
+        pz = _mm_set_epi32(i[0].z, i[1].z, i[2].z, i[3].z);
+        vx = _mm_setzero_si128();
+        vy = _mm_setzero_si128();
+        vz = _mm_setzero_si128();
+    }
+
+    __forceinline __m128i update_vel_cpt(__m128i c)
+    {
+        __m128i m1 = _mm_shuffle_epi32(c, 0x39);
+        __m128i m2 = _mm_shuffle_epi32(c, 0x4e);
+        __m128i m3 = _mm_shuffle_epi32(c, 0x93);
+
+        __m128i lt1 = _mm_cmplt_epi32(m1, c);
+        __m128i lt2 = _mm_cmplt_epi32(m2, c);
+        __m128i lt3 = _mm_cmplt_epi32(m3, c);
+
+        __m128i gt1 = _mm_cmpgt_epi32(m1, c);
+        __m128i gt2 = _mm_cmpgt_epi32(m2, c);
+        __m128i gt3 = _mm_cmpgt_epi32(m3, c);
+
+        __m128i one = _mm_set1_epi32(1);
+
+        __m128i dv1 = _mm_sub_epi32(_mm_and_si128(gt1, one), _mm_and_si128(lt1, one));
+        __m128i dv2 = _mm_sub_epi32(_mm_and_si128(gt2, one), _mm_and_si128(lt2, one));
+        __m128i dv3 = _mm_sub_epi32(_mm_and_si128(gt3, one), _mm_and_si128(lt3, one));
+
+        return _mm_add_epi32(dv1, _mm_add_epi32(dv2, dv3));
+    }
+
+    void update()
+    {
+        vx = _mm_add_epi32(vx, update_vel_cpt(px));
+        vy = _mm_add_epi32(vy, update_vel_cpt(py));
+        vz = _mm_add_epi32(vz, update_vel_cpt(pz));
+
+        px = _mm_add_epi32(px, vx);
+        py = _mm_add_epi32(py, vy);
+        pz = _mm_add_epi32(pz, vz);
+    }
+};
+
 ostream& operator<<(ostream& os, const d12_moon& m)
 {
     os << "pos=" << m.pos << ", vel=" << m.vel;
+    return os;
+}
+ostream& operator<<(ostream& os, const d12_moon4& m)
+{
+    for (int i = 3; i >= 0; --i)
+    {
+        os << setfill(' ')
+            << "   pos=<x=" << setw(2) << m.px.m128i_i32[i]
+            << ", y=" << setw(2) << m.py.m128i_i32[i]
+            << ", z=" << setw(2) << m.pz.m128i_i32[i]
+            << ">, vel=<x=" << setw(2) << m.vx.m128i_i32[i]
+            << ", y=" << setw(2) << m.vy.m128i_i32[i]
+            << ", z=" << setw(2) << m.vz.m128i_i32[i] << ">" << endl;
+    }
     return os;
 }
 
@@ -1039,6 +1105,38 @@ int day12(const vector<d12_pt>& input, int steps, bool show = false)
     }
     return energy;
 }
+
+
+int day12_2(const vector<d12_pt>& input, int64_t steps, bool show = true)
+{
+    d12_moon4 moons(input);
+
+    const int64_t chunk = 100000000;
+    int64_t taken = 0;
+    while ((steps - taken) > chunk)
+    {
+        for (int64_t tick = 1; tick <= chunk; ++tick)
+        {
+            moons.update();
+        }
+        taken += chunk;
+        cout << "After " << taken << " steps:\n" << moons;
+    }
+
+    for (int64_t tick = taken; tick <= steps; ++tick)
+    {
+        moons.update();
+    }
+
+    if (show)
+    {
+        cout << "After " << steps << " steps:\n" << moons;
+    }
+
+    return -1;
+}
+
+
 
 // -------------------------------------------------------------------
 
@@ -1172,6 +1270,10 @@ int main()
     test(179, day12({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }, 10));
     test(1940, day12({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 100));
     gogogo(day12({ {13,9,5}, {8,14,-2}, {-5,4,11}, {2,-6,1} }, 1000));
+
+
+    test(179, day12_2({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }, 2772, true));
+    test(1940, day12_2({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 4686774924ll, true));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
