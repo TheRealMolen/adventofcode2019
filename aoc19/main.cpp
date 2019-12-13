@@ -940,6 +940,108 @@ int day11(const string& program, bool start_col = false)
 
 // -------------------------------------------------------------------
 
+struct d12_pt
+{
+    int x, y, z;
+
+    d12_pt(const initializer_list<int>& l)
+    {
+        auto it = l.begin();
+        x = *(it++);
+        y = *(it++);
+        z = *it;
+    }
+    d12_pt(int x, int y, int z) : x(x), y(y), z(z) {/**/}
+
+    d12_pt& operator+=(const d12_pt& o)
+    {
+        x += o.x;
+        y += o.y;
+        z += o.z;
+        return *this;
+    }
+};
+ostream& operator<<(ostream& os, const d12_pt& v)
+{
+    os << "<x=" << setw(2) << setfill(' ') << v.x << ", y=" << setw(2) << v.y << ", z=" << setw(2) << v.z << '>';
+    return os;
+};
+
+struct d12_moon
+{
+    d12_pt pos;
+    d12_pt vel;
+
+    d12_moon(const d12_pt& pos) : pos(pos), vel({ 0,0,0 })  {/**/}
+
+
+    int energy() const
+    {
+        int pe = abs(pos.x) + abs(pos.y) + abs(pos.z);
+        int ke = abs(vel.x) + abs(vel.y) + abs(vel.z);
+        return pe * ke;
+    }
+
+    void update_velocity(const vector<d12_moon>& moons)
+    {
+        for (auto it = moons.begin(); it!= moons.end(); ++it)
+        {
+            const d12_moon& o = *it;
+            if (&o == this)
+                continue;
+
+            vel.x += (o.pos.x > pos.x) ? 1 : ((o.pos.x < pos.x) ? -1 : 0);
+            vel.y += (o.pos.y > pos.y) ? 1 : ((o.pos.y < pos.y) ? -1 : 0);
+            vel.z += (o.pos.z > pos.z) ? 1 : ((o.pos.z < pos.z) ? -1 : 0);
+        }
+    }
+
+    void update_position()
+    {
+        pos += vel;
+    }
+};
+ostream& operator<<(ostream& os, const d12_moon& m)
+{
+    os << "pos=" << m.pos << ", vel=" << m.vel;
+    return os;
+}
+
+
+int day12(const vector<d12_pt>& input, int steps, bool show = false)
+{
+    vector<d12_moon> moons;
+    for (auto& p : input)
+        moons.emplace_back(p);
+
+    for (int tick = 1; tick <= steps; ++tick)
+    {
+        for (auto& moon : moons)
+            moon.update_velocity(moons);
+
+        for (auto& moon : moons)
+            moon.update_position();
+
+        if (show)
+        {
+            cout << "After " << tick << " step" << (tick == 1 ? "" : "s") << ":\n";
+            for (const auto& moon : moons)
+                cout << "   " << moon << '\n';
+        }
+    }
+
+    int energy = 0;
+    for (auto& moon : moons)
+    {
+        if (show)
+            cout << "  energy = " << moon.energy() << "\n";
+        energy += moon.energy();
+    }
+    return energy;
+}
+
+// -------------------------------------------------------------------
+
 
 int main()
 {
@@ -1065,6 +1167,11 @@ int main()
     // ip_dump(LOADSTR(11), { 0, 471 });
     gogogo(day11(LOADSTR(11)));
     gogogo(day11(LOADSTR(11), true));
+
+
+    test(179, day12({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }, 10));
+    test(1940, day12({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 100));
+    gogogo(day12({ {13,9,5}, {8,14,-2}, {-5,4,11}, {2,-6,1} }, 1000));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
