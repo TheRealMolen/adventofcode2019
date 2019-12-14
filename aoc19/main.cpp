@@ -4,7 +4,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
-#include <immintrin.h>
+#include <tmmintrin.h>
 #include <map>
 #include <memory>
 #include <set>
@@ -636,11 +636,12 @@ string ip_run_capture_output(const string& program, const list<IntProc::word_t>&
 
 
 // -------------------------------------------------------------------
-int gcd(int a, int b)
+template<typename T>
+T gcd(T a, T b)
 {
     while (b != 0)
     {
-        int t = b;
+        T t = b;
         b = a % b;
         a = t;
     }
@@ -940,6 +941,18 @@ int day11(const string& program, bool start_col = false)
 }
 
 // -------------------------------------------------------------------
+template<typename T>
+T gcd(T a, T b, T c)
+{
+    return max(gcd(a, b), max(gcd(b, c), gcd(c, a)));
+}
+
+template<typename T>
+T lcm(T a, T b)
+{
+    return (a * b) / gcd(a, b);
+}
+
 
 struct d12_pt
 {
@@ -968,41 +981,6 @@ ostream& operator<<(ostream& os, const d12_pt& v)
     return os;
 };
 
-struct d12_moon
-{
-    d12_pt pos;
-    d12_pt vel;
-
-    d12_moon(const d12_pt& pos) : pos(pos), vel({ 0,0,0 })  {/**/}
-
-
-    int energy() const
-    {
-        int pe = abs(pos.x) + abs(pos.y) + abs(pos.z);
-        int ke = abs(vel.x) + abs(vel.y) + abs(vel.z);
-        return pe * ke;
-    }
-
-    void update_velocity(const vector<d12_moon>& moons)
-    {
-        for (auto it = moons.begin(); it!= moons.end(); ++it)
-        {
-            const d12_moon& o = *it;
-            if (&o == this)
-                continue;
-
-            vel.x += (o.pos.x > pos.x) ? 1 : ((o.pos.x < pos.x) ? -1 : 0);
-            vel.y += (o.pos.y > pos.y) ? 1 : ((o.pos.y < pos.y) ? -1 : 0);
-            vel.z += (o.pos.z > pos.z) ? 1 : ((o.pos.z < pos.z) ? -1 : 0);
-        }
-    }
-
-    void update_position()
-    {
-        pos += vel;
-    }
-};
-
 struct d12_moon4
 {
     __m128i px, py, pz;
@@ -1018,25 +996,35 @@ struct d12_moon4
         vz = _mm_setzero_si128();
     }
 
+    bool operator==(const d12_moon4& o) const
+    {
+        __m128i pxe = _mm_cmpeq_epi32(px, o.px);
+        __m128i pye = _mm_cmpeq_epi32(py, o.py);
+        __m128i pze = _mm_cmpeq_epi32(pz, o.pz);
+        __m128i vxe = _mm_cmpeq_epi32(vx, o.vx);
+        __m128i vye = _mm_cmpeq_epi32(vy, o.vy);
+        __m128i vze = _mm_cmpeq_epi32(vz, o.vz);
+
+        __m128i ceq = _mm_and_si128(_mm_and_si128(_mm_and_si128(pxe, pye), _mm_and_si128(vxe, vye)), _mm_and_si128(pze, vze));
+
+        return _mm_test_all_ones(ceq) != 0;
+    }
+
     __forceinline __m128i update_vel_cpt(__m128i c)
     {
         __m128i m1 = _mm_shuffle_epi32(c, 0x39);
         __m128i m2 = _mm_shuffle_epi32(c, 0x4e);
         __m128i m3 = _mm_shuffle_epi32(c, 0x93);
 
-        __m128i lt1 = _mm_cmplt_epi32(m1, c);
-        __m128i lt2 = _mm_cmplt_epi32(m2, c);
-        __m128i lt3 = _mm_cmplt_epi32(m3, c);
-
-        __m128i gt1 = _mm_cmpgt_epi32(m1, c);
-        __m128i gt2 = _mm_cmpgt_epi32(m2, c);
-        __m128i gt3 = _mm_cmpgt_epi32(m3, c);
+        __m128i d1 = _mm_sub_epi32(m1, c);
+        __m128i d2 = _mm_sub_epi32(m2, c);
+        __m128i d3 = _mm_sub_epi32(m3, c);
 
         __m128i one = _mm_set1_epi32(1);
 
-        __m128i dv1 = _mm_sub_epi32(_mm_and_si128(gt1, one), _mm_and_si128(lt1, one));
-        __m128i dv2 = _mm_sub_epi32(_mm_and_si128(gt2, one), _mm_and_si128(lt2, one));
-        __m128i dv3 = _mm_sub_epi32(_mm_and_si128(gt3, one), _mm_and_si128(lt3, one));
+        __m128i dv1 = _mm_sign_epi32(one, d1);
+        __m128i dv2 = _mm_sign_epi32(one, d2);
+        __m128i dv3 = _mm_sign_epi32(one, d3);
 
         return _mm_add_epi32(dv1, _mm_add_epi32(dv2, dv3));
     }
@@ -1051,13 +1039,67 @@ struct d12_moon4
         py = _mm_add_epi32(py, vy);
         pz = _mm_add_epi32(pz, vz);
     }
+
+    int energy() const
+    {
+        __m128i pe = _mm_add_epi32(_mm_abs_epi32(px), _mm_add_epi32(_mm_abs_epi32(py), _mm_abs_epi32(pz)));
+        __m128i ke = _mm_add_epi32(_mm_abs_epi32(vx), _mm_add_epi32(_mm_abs_epi32(vy), _mm_abs_epi32(vz)));
+        __m128i te = _mm_mullo_epi32(pe, ke);
+        __m128i hsum = _mm_hadd_epi32(te, te);
+        __m128i sum = _mm_hadd_epi32(hsum, hsum);
+        return sum.m128i_i32[0];
+    }
+
+
+
+    void updateX()
+    {
+        vx = _mm_add_epi32(vx, update_vel_cpt(px));
+        px = _mm_add_epi32(px, vx);
+    }
+    bool eqX(const d12_moon4& o) const
+    {
+        __m128i peq = _mm_cmpeq_epi32(px, o.px);
+        __m128i veq = _mm_cmpeq_epi32(vx, o.vx);
+        __m128i ceq = _mm_and_si128(peq, veq);
+        return _mm_test_all_ones(ceq) != 0;
+    }
+
+    void updateY()
+    {
+        vy = _mm_add_epi32(vy, update_vel_cpt(py));
+        py = _mm_add_epi32(py, vy);
+    }
+    bool eqY(const d12_moon4& o) const
+    {
+        __m128i peq = _mm_cmpeq_epi32(py, o.py);
+        __m128i veq = _mm_cmpeq_epi32(vy, o.vy);
+        __m128i ceq = _mm_and_si128(peq, veq);
+        return _mm_test_all_ones(ceq) != 0;
+    }
+
+    void updateZ()
+    {
+        vz = _mm_add_epi32(vz, update_vel_cpt(pz));
+        pz = _mm_add_epi32(pz, vz);
+    }
+    bool eqZ(const d12_moon4& o) const
+    {
+        __m128i peq = _mm_cmpeq_epi32(pz, o.pz);
+        __m128i veq = _mm_cmpeq_epi32(vz, o.vz);
+        __m128i ceq = _mm_and_si128(peq, veq);
+        return _mm_test_all_ones(ceq) != 0;
+    }
+
+    int hashX() const
+    {
+        __m128i te = _mm_mullo_epi32(_mm_abs_epi32(px), _mm_abs_epi32(vx));
+        __m128i hsum = _mm_hadd_epi32(te, te);
+        __m128i sum = _mm_hadd_epi32(hsum, hsum);
+        return sum.m128i_i32[0];
+    }
 };
 
-ostream& operator<<(ostream& os, const d12_moon& m)
-{
-    os << "pos=" << m.pos << ", vel=" << m.vel;
-    return os;
-}
 ostream& operator<<(ostream& os, const d12_moon4& m)
 {
     for (int i = 3; i >= 0; --i)
@@ -1076,43 +1118,10 @@ ostream& operator<<(ostream& os, const d12_moon4& m)
 
 int day12(const vector<d12_pt>& input, int steps, bool show = false)
 {
-    vector<d12_moon> moons;
-    for (auto& p : input)
-        moons.emplace_back(p);
-
-    for (int tick = 1; tick <= steps; ++tick)
-    {
-        for (auto& moon : moons)
-            moon.update_velocity(moons);
-
-        for (auto& moon : moons)
-            moon.update_position();
-
-        if (show)
-        {
-            cout << "After " << tick << " step" << (tick == 1 ? "" : "s") << ":\n";
-            for (const auto& moon : moons)
-                cout << "   " << moon << '\n';
-        }
-    }
-
-    int energy = 0;
-    for (auto& moon : moons)
-    {
-        if (show)
-            cout << "  energy = " << moon.energy() << "\n";
-        energy += moon.energy();
-    }
-    return energy;
-}
-
-
-int day12_2(const vector<d12_pt>& input, int64_t steps, bool show = true)
-{
     d12_moon4 moons(input);
 
     const int64_t chunk = 100000000;
-    int64_t taken = 0;
+    int64_t taken = 1;
     while ((steps - taken) > chunk)
     {
         for (int64_t tick = 1; tick <= chunk; ++tick)
@@ -1130,10 +1139,93 @@ int day12_2(const vector<d12_pt>& input, int64_t steps, bool show = true)
 
     if (show)
     {
-        cout << "After " << steps << " steps:\n" << moons;
+        cout << "After " << steps << " steps, energy=" << moons.energy() << "; moons=\n" << moons;
     }
 
-    return -1;
+    return moons.energy();
+}
+
+
+// bruteforce (>100bn steps and counting)
+int64_t day12_2(const vector<d12_pt>& input, bool show = false)
+{
+    d12_moon4 moons(input);
+    vector<d12_moon4> zeros{ input };
+
+    int64_t taken = 0;
+    for (;;)
+    {
+        moons.update();
+        taken++;
+
+        if (moons.energy() == 0)
+        {
+            if (find(zeros.begin(), zeros.end(), moons) != zeros.end())
+                break;
+
+            zeros.push_back(moons);
+            cout << "found zero after " << taken << " steps:\n" << moons << endl;
+        }
+    }
+
+    if (show)
+    {
+        cout << "After " << taken << " steps, energy=" << moons.energy() << "; moons=\n" << moons << endl;
+    }
+
+    return taken;
+}
+
+
+int64_t day12_2b(const vector<d12_pt>& input, bool show = false)
+{
+    d12_moon4 moons(input);
+    d12_moon4 original(input);
+
+    // find loop length for x
+    int64_t takenX = 0;
+    for (;;)
+    {
+        moons.updateX();
+        takenX++;
+
+        if (moons.eqX(original))
+        {
+            if (show)
+                cout << "found X loop after " << takenX << " steps" << endl;
+            break;
+        }
+    }
+    // find loop length for y
+    int64_t takenY = 0;
+    for (;;)
+    {
+        moons.updateY();
+        takenY++;
+
+        if (moons.eqY(original))
+        {
+            if (show)
+                cout << "found Y loop after " << takenY << " steps" << endl;
+            break;
+        }
+    }
+    // find loop length for z
+    int64_t takenZ = 0;
+    for (;;)
+    {
+        moons.updateZ();
+        takenZ++;
+
+        if (moons.eqZ(original))
+        {
+            if(show)
+                cout << "found Z loop after " << takenZ << " steps" << endl;
+            break;
+        }
+    }
+
+    return lcm(takenX, lcm(takenY, takenZ));
 }
 
 
@@ -1271,9 +1363,9 @@ int main()
     test(1940, day12({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 100));
     gogogo(day12({ {13,9,5}, {8,14,-2}, {-5,4,11}, {2,-6,1} }, 1000));
 
-
-    test(179, day12_2({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }, 2772, true));
-    test(1940, day12_2({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 4686774924ll, true));
+    test(2772ll, day12_2b({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }));
+    test(4686774924ll, day12_2b({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }));
+    gogogo(day12_2b({ { 13,9,5 },{ 8,14,-2 },{ -5,4,11 },{ 2,-6,1 } }), 277068010964808ll);
 
 
     // animate snow falling behind the characters in the console until someone presses a key
