@@ -1,6 +1,7 @@
 ﻿#include "harness.h"
 
 #include <algorithm>
+#include <conio.h>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
@@ -700,6 +701,11 @@ struct d10_pt
         y /= div;
     }
 };
+ostream& operator<<(ostream& os, const d10_pt& p)
+{
+    os << '<' << p.x << ", " << p.x << '>';
+    return os;
+}
 
 void d10_read_asteroids(const stringlist& input, set<d10_pt>& out_points)
 {
@@ -1090,14 +1096,6 @@ struct d12_moon4
         __m128i ceq = _mm_and_si128(peq, veq);
         return _mm_test_all_ones(ceq) != 0;
     }
-
-    int hashX() const
-    {
-        __m128i te = _mm_mullo_epi32(_mm_abs_epi32(px), _mm_abs_epi32(vx));
-        __m128i hsum = _mm_hadd_epi32(te, te);
-        __m128i sum = _mm_hadd_epi32(hsum, hsum);
-        return sum.m128i_i32[0];
-    }
 };
 
 ostream& operator<<(ostream& os, const d12_moon4& m)
@@ -1228,7 +1226,122 @@ int64_t day12_2b(const vector<d12_pt>& input, bool show = false)
     return lcm(takenX, lcm(takenY, takenZ));
 }
 
+// -------------------------------------------------------------------
 
+int day13(const string& program)
+{
+    IntProc ip(program);
+    ip.run();
+
+    map<d10_pt, int> screen;
+    while (ip.has_output())
+    {
+        auto x = ip.read_output();
+        auto y = ip.read_output();
+        auto t = ip.read_output();
+
+        screen[{(int)x, (int)y}] = (int)t;
+    }
+
+    int nblocks = 0;
+    d10_pt minp((int16_t)10000, (int16_t)10000);
+    d10_pt maxp((int16_t)-10000, (int16_t)-100000);
+    for (const auto& tile : screen)
+    {
+        minp.x = min(minp.x, tile.first.x);
+        minp.y = min(minp.y, tile.first.y);
+        maxp.x = max(maxp.x, tile.first.x);
+        maxp.y = max(maxp.y, tile.first.y);
+
+        if (tile.second == 2)
+            nblocks++;
+    }
+
+    cout << "screen: " << minp << " -> " << maxp << endl;
+
+    return nblocks;
+}
+
+int day13_2(const string& program)
+{
+    IntProc ip(program);
+    ip.set_input({});
+    ip.poke(0, 2);
+
+    const vector<char> tiles{ ' ','#','_','M','o' };
+
+    size_t w = 35;
+    size_t h = 25;
+    vector<char> screen;
+    screen.resize(w*h, tiles[0]);
+
+    IntProc::word_t score = 0;
+    IntProc::word_t ballx = 0;
+    IntProc::word_t batx = 0;
+
+    for(;;)
+    {
+        // update sim
+        bool done = ip.run();
+
+        // update screen
+        while (ip.has_output())
+        {
+            auto x = ip.read_output();
+            auto y = ip.read_output();
+            auto t = ip.read_output();
+
+            if (x >= 0)
+                screen[x + y*w] = tiles[t];
+            else
+                score = t;
+
+            if (t == 3)
+                batx = x;
+            else if (t == 4)
+                ballx = x;
+        }
+
+        if (done)
+            break;
+
+#ifdef D_REALLY_PLAY
+        // draw
+        cout << "\n\nScore: " << score << '\n';
+        for (size_t y = 0; y < h; ++y)
+        {
+            auto itscr = screen.begin() + (y * w);
+            for (size_t x = 0; x < w; ++x, ++itscr)
+            {
+                cout << *itscr;
+            }
+            cout << '\n';
+        }
+        cout << endl;
+
+        // read input
+        auto c = _getch();
+        if (c == ' ')
+            ip.set_input({ 0 });
+        else if (c == 'h')
+            ip.set_input({ -1 });
+        else if (c == 'l')
+            ip.set_input({ 1 });
+        else if (c == 27)
+            return -1;
+#else
+        // autoplay
+        if (batx < ballx)
+            ip.set_input({ 1 });
+        else if (batx > ballx)
+            ip.set_input({ -1 });
+        else
+            ip.set_input({ 0 });
+#endif
+    }
+
+    return (int)score;
+}
 
 // -------------------------------------------------------------------
 
@@ -1367,6 +1480,9 @@ int main()
     test(4686774924ll, day12_2b({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }));
     gogogo(day12_2b({ { 13,9,5 },{ 8,14,-2 },{ -5,4,11 },{ 2,-6,1 } }), 277068010964808ll);
 
+
+    gogogo(day13(LOADSTR(13)));
+    gogogo(day13_2(LOADSTR(13)));
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();
