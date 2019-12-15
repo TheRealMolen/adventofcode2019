@@ -1,7 +1,6 @@
 ﻿#include "harness.h"
 
 #include <algorithm>
-#include <conio.h>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
@@ -11,6 +10,15 @@
 #include <set>
 #include <unordered_set>
 #include <vector>
+
+
+#define D_REALLY_PLAYx
+
+
+#ifdef D_REALLY_PLAY
+#include <conio.h>
+#endif
+
 
 #include "intproc.h"
 
@@ -1481,8 +1489,8 @@ int main()
     gogogo(day12_2b({ { 13,9,5 },{ 8,14,-2 },{ -5,4,11 },{ 2,-6,1 } }), 277068010964808ll);
 
 
-    gogogo(day13(LOADSTR(13)));
-    gogogo(day13_2(LOADSTR(13)));
+    gogogo(day13(LOADSTR(13)), 216);
+    nononoD(day13_2(LOADSTR(13)), 10025);
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();
