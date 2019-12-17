@@ -159,6 +159,11 @@
     <Text Include="data\day10t5.txt" />
     <Text Include="data\day10t_2.txt" />
     <Text Include="data\day13.txt" />
+    <Text Include="data\day14.txt" />
+    <Text Include="data\day14t.txt" />
+    <Text Include="data\day14t2.txt" />
+    <Text Include="data\day14t3.txt" />
+    <Text Include="data\day15.txt" />
     <Text Include="data\day2.txt" />
     <Text Include="data\day3.txt" />
     <Text Include="data\day5.txt" />
@@ -173,6 +178,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
+    <None Include="data\day15.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

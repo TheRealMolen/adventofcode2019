@@ -2,12 +2,15 @@
 
 #include <iostream>
 #include <list>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 
 using namespace std;
 
+
+class IntProcSymbols;
 
 class IntProc
 {
@@ -24,6 +27,8 @@ private:
 
     friend ostream& operator<<(ostream& os, const IntProc& ip);
     static const char* get_mode_str(word_t instr, int opnum);
+
+    string display_operand(int opnum, word_t instr_pc, const IntProcSymbols& sym, bool is_data) const;
 
 
     word_t fetch(word_t addr, int mode = 0) const
@@ -107,7 +112,8 @@ public:
         store(addr, val, 0);
     }
 
-    void dump(const list<word_t>& entries = { 0 }) const;
+    void dump(const IntProcSymbols& sym) const;
+    void dump(ostream& os, const IntProcSymbols& sym) const;
 
     bool has_output() const
     {
@@ -120,4 +126,39 @@ public:
         return o;
     }
 
+};
+
+
+
+class IntProcSymbols
+{
+public:
+    typedef IntProc::word_t word_t;
+
+    map<word_t, string> variables;
+    map<word_t, string> locations;
+
+    IntProcSymbols(const map<word_t, string>& _variables, const map<word_t, string>& _locations)
+        : variables(_variables)
+        , locations(_locations)
+    {
+        if (locations.find(0) == locations.end())
+        {
+            locations[0] = "main";
+        }
+    }
+
+    IntProcSymbols(const list<word_t>& entries)
+    {
+        for (auto location : entries)
+        {
+            ostringstream os;
+            os << "?? @" << location;
+            locations[location] = os.str();
+        }
+        if (locations.find(0) == locations.end())
+        {
+            locations[0] = "main";
+        }
+    }
 };

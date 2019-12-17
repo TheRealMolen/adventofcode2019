@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <tmmintrin.h>
@@ -13,9 +14,10 @@
 
 
 #define D_REALLY_PLAYx
+#define D_INTERACTIVE_15x
 
 
-#ifdef D_REALLY_PLAY
+#if defined( D_REALLY_PLAY) || defined(D_INTERACTIVE_15)
 #include <conio.h>
 #endif
 
@@ -334,10 +336,23 @@ IntProc::word_t day5_2(const string& initial, IntProc::word_t input)
     return ip.read_output();
 }
 
-void ip_dump(const string& initial, const list<IntProc::word_t>& entries = { 0 })
+void ip_dump(const string& initial, const IntProcSymbols& syms)
 {
     IntProc ip(initial);
-    ip.dump(entries);
+    ip.dump(syms);
+}
+
+void ip_disasm(const string& program, const string& filename, const IntProcSymbols& syms)
+{
+    string filepath = "data/day" + filename + ".s";
+    ofstream ofs(filepath);
+
+    ofs << "# IntProc disassembly\n#\n\n";
+
+    IntProc ip(program);
+    ip.dump(ofs, syms);
+
+    ofs.close();
 }
 
 // -------------------------------------------------------------------
@@ -1353,6 +1368,564 @@ int day13_2(const string& program)
 
 // -------------------------------------------------------------------
 
+void d14_tokenise(const string& in, vector<string>& out)
+{
+    out.clear();
+    out.reserve(20);
+
+    auto it = in.begin();
+    string curr;
+    while (it != in.end())
+    {
+        switch (*it)
+        {
+        case ' ':
+            if (!curr.empty())
+            {
+                out.push_back(curr);
+                curr.clear();
+            }
+            break;
+
+        case ',':
+            if (!curr.empty())
+            {
+                out.push_back(curr);
+                curr.clear();
+            }
+            out.push_back(",");
+            break;
+
+        default:
+            curr.push_back(*it);
+        }
+
+        ++it;
+    }
+
+    if(!curr.empty())
+        out.push_back(curr);
+}
+
+struct d14_reagent
+{
+    string what;
+    int64_t quant;
+
+    d14_reagent() {/**/}
+    d14_reagent(const string& squant, const string& what) : what(what), quant(stoll(squant)) {/**/ }
+    d14_reagent(int64_t quant, const string& what) : what(what), quant(quant) {/**/ }
+};
+
+struct d14_reaction
+{
+    d14_reagent out;
+    vector<d14_reagent> in;
+
+    d14_reaction() {/**/}
+    d14_reaction(const string& input)
+    {
+        vector<string> tokens;
+        d14_tokenise(input, tokens);
+
+        for (auto it_tok = tokens.begin(); it_tok != tokens.end(); ++it_tok)
+        {
+            if (*it_tok == ",")
+                continue;
+
+            if (*it_tok == "=>")
+            {
+                ++it_tok;
+                out = d14_reagent(*it_tok, *(it_tok + 1));
+                break;
+            }
+
+            in.emplace_back(*it_tok, *(it_tok + 1));
+            ++it_tok;
+        }
+    }
+};
+
+int day14(const stringlist& input)
+{
+    map<string, d14_reaction> reactions;    // by output
+    for (auto& line : input)
+    {
+        auto pos_output = line.find_last_of(' ');
+        string output = line.substr(pos_output + 1);
+        reactions.try_emplace(output, line);
+    }
+
+    int64_t ore_used = 0;
+    list<d14_reagent> needed;
+    map<string, int64_t> excess;
+    needed.emplace_back(1, "FUEL");
+    while (!needed.empty())
+    {
+        d14_reagent what = move(needed.front());
+        needed.pop_front();
+
+        // if it's ore, we need to go mining
+        if (what.what == "ORE")
+        {
+            ore_used += what.quant;
+            continue;
+        }
+
+        // do we have enough excess of that left over?
+        auto itexcess = excess.find(what.what);
+        if (itexcess != excess.end())
+        {
+            if (itexcess->second >= what.quant)
+            {
+                excess[what.what] = itexcess->second - what.quant;
+                continue;
+            }
+
+            what.quant -= itexcess->second;
+            excess[what.what] = 0;
+        }
+
+        // nope, we need to make some more
+        const d14_reaction& reaction = reactions[what.what];
+        int64_t numneeded = what.quant / reaction.out.quant;
+        if (reaction.out.quant * numneeded < what.quant)
+            numneeded++;
+        if (reaction.out.quant * numneeded > what.quant)
+            excess[what.what] = reaction.out.quant * numneeded - what.quant;
+
+        for (auto& reagent : reaction.in)
+            needed.emplace_back(numneeded * reagent.quant, reagent.what);
+    }
+
+    return (int)ore_used;
+}
+
+int day14_2(const stringlist& input)
+{
+    map<string, d14_reaction> reactions;    // by output
+    for (auto& line : input)
+    {
+        auto pos_output = line.find_last_of(' ');
+        string output = line.substr(pos_output + 1);
+        reactions.try_emplace(output, line);
+    }
+
+    int64_t fuel_made = 0;
+    list<d14_reagent> needed;
+    map<string, int64_t> excess;
+    excess["ORE"] = 1000000000000;
+    for(;;)
+    {
+        needed.emplace_back(1, "FUEL");
+
+        bool run_out = false;
+        while (!needed.empty())
+        {
+            d14_reagent what = move(needed.front());
+            needed.pop_front();
+
+            // do we have enough excess of that left over?
+            auto itexcess = excess.find(what.what);
+            if (itexcess != excess.end())
+            {
+                if (itexcess->second >= what.quant)
+                {
+                    excess[what.what] = itexcess->second - what.quant;
+                    continue;
+                }
+
+                what.quant -= itexcess->second;
+                excess[what.what] = 0;
+            }
+
+            // if it's ore, we're done
+            if (what.what == "ORE")
+            {
+                run_out = true;
+                break;
+            }
+
+            // nope, we need to make some more
+            const d14_reaction& reaction = reactions[what.what];
+            int64_t numneeded = what.quant / reaction.out.quant;
+            if (reaction.out.quant * numneeded < what.quant)
+                numneeded++;
+            if (reaction.out.quant * numneeded > what.quant)
+                excess[what.what] = reaction.out.quant * numneeded - what.quant;
+
+            for (auto& reagent : reaction.in)
+                needed.emplace_back(numneeded * reagent.quant, reagent.what);
+        }
+
+        if (run_out)
+            break;
+
+        fuel_made++;
+    }
+
+    return (int)fuel_made;
+}
+
+// -------------------------------------------------------------------
+
+void d15_disasm(const string& program)
+{
+    ip_disasm(program, "15", IntProcSymbols({
+        { 1032, "t" },
+        { 1033, "command" },
+        { 1034, "curr_x" },
+        { 1035, "curr_y" },
+        { 1036, "curr_x_odd" },
+        { 1037, "curr_halfy" },
+        { 1038, "curr_y_odd" },
+        { 1039, "new_x" },
+        { 1040, "new_y" },
+        { 1041, "new_x_odd" },
+        { 1042, "new_halfy" },
+        { 1043, "new_y_odd" },
+        { 1044, "result" },
+    },
+    {
+        { 31, "go_north" },
+        { 58, "go_south" },
+        { 81, "go_west" },
+        { 104, "go_east" },
+        { 124, "do_move" },
+        { 165, "check_tile" },
+        { 217, "out_of_bounds" },
+        { 224, "end_move" },
+        { 247, "output_result" },
+    }));
+}
+
+struct d15_map
+{
+    size_t width;
+    size_t height;
+    d10_pt pos;
+    vector<int8_t> tiles;   // -1 = untested, 0 = wall, 1 = clear, 2 = console, 3 = start
+    vector<uint16_t> costs;
+
+    d15_map(size_t size) : width(size), height(size), pos((int16_t)size/2, (int16_t)size/2)
+    {
+        tiles.resize(width*height, -1);
+        costs.resize(width*height, 0xffffu);
+
+        set(pos.x, pos.y, 3);
+        setcost(pos.x, pos.y, 0);
+    }
+
+    int8_t get(size_t x, size_t y) const
+    {
+        if (x > width || y > height)
+        {
+            return 0;
+        }
+
+        return tiles[x + y * width];
+    }
+
+    void set(const d10_pt& p, int8_t val)
+    {
+        tiles[p.x + p.y * width] = val;
+    }
+    void set(size_t x, size_t y, int8_t val)
+    {
+        tiles[x + y * width] = val;
+    }
+    void setcost(size_t x, size_t y, uint16_t val)
+    {
+        costs[x + y * width] = val;
+    }
+};
+
+ostream& operator<<(ostream& os, const d15_map& m)
+{
+    auto it = m.tiles.begin();
+    for (size_t y = 0; y < m.height; ++y)
+    {
+        for (size_t x = 0; x < m.width; ++x, ++it)
+        {
+            if (x == m.pos.x && y == m.pos.y)
+            {
+                os << 'o';
+                continue;
+            }
+
+            auto t = *it;
+            if (t < 0)
+                os << '.';
+            else if (t == 0)
+                os << '#';
+            else if (t == 1)
+                os << ' ';
+            else if (t == 2)
+                os << 'k';
+            else if (t == 3)
+                os << 'x';
+            else if (t == 10)
+                os << 'O';
+            else
+                os << '!';
+        }
+        os << '\n';
+    }
+
+    return os;
+}
+
+static const vector<d10_pt> d15_moves = { {0,0}, {0,-1}, {0,1}, {-1,0}, {1,0} };
+
+struct d15_node
+{
+    d10_pt pos;
+    vector<int8_t> open;
+    int8_t return_move;
+
+    void try_add_move(int8_t move, const d15_map& map)
+    {
+        auto npos = pos + d15_moves[move];
+        if (map.get(npos.x, npos.y) == -1)
+            open.push_back(move);
+    }
+
+    d15_node(d10_pt _pos, int8_t move_here, const d15_map& map) : pos(_pos)
+    {
+        try_add_move(1, map);
+        try_add_move(2, map);
+        try_add_move(3, map);
+        try_add_move(4, map);
+
+        return_move = ((move_here - 1) ^ 1) + 1;
+    }
+};
+
+
+int d15_check_tile(int x, int y, const IntProc& ip)
+{
+    if (x == 0 || y == 0)
+        return 0;
+    if (x == 40 || y == 40)
+        return 0;
+
+    if (x == 35 && y == 9)
+        return 2;
+
+    int x_odd = x & 1;
+    int y_odd = y & 1;
+    if (x_odd * y_odd != 0)
+        return 1;
+    if (x_odd + y_odd == 0)
+        return 0;
+
+    int t = ((y / 2) + y_odd - 1);
+    t *= 39;
+    t += x - 1;
+
+    int n = (int)ip.peek(252 + t);
+    return (n < 26) ? 1 : 0;
+}
+
+d15_map d15_extract_map(const IntProc& ip)
+{ 
+    auto size = ip.peek(139) + 1;
+    d15_map smap(size);
+
+    for (int y = 0; y < size; ++y)
+    {
+        for (int x = 0; x < size; ++x)
+        {
+            smap.set({ x,y }, d15_check_tile(x, y, ip));
+        }
+    }
+
+    // cout << "------ hax0red version of map vvvvvv ----------------\n" << smap << "------------- ^^^^^^ --------------\n" << endl;
+    return smap;
+}
+
+int day15(const string& program)
+{
+    IntProc ip(program);
+
+    d15_map smap(50);
+    vector<d15_node> moves;
+    moves.emplace_back(smap.pos, -1, smap);
+
+    // go full exhaustive
+    while (!moves.empty())
+    {
+        d15_node& move = moves.back();
+
+        int command = move.open.back();
+        move.open.pop_back();
+
+        ip.set_input({ command });
+        ip.run();
+
+        auto result = ip.read_output();
+        auto wpos = smap.pos + d15_moves[command];
+        smap.set(wpos, (int8_t)result);
+
+        if (result)
+        {
+            if (result == 2)
+                return (int)moves.size();
+
+            smap.pos = wpos;
+            moves.emplace_back(wpos, command, smap);
+        }
+
+        while (!moves.empty() && moves.back().open.empty())
+        {
+            ip.set_input({ moves.back().return_move });
+            if (!ip.run())
+            {
+                wpos = smap.pos + d15_moves[moves.back().return_move];
+                smap.pos = wpos;
+
+                auto result = ip.read_output();
+                _ASSERT(result != 0);
+            }
+            moves.pop_back();
+        }
+    }
+
+    cout << smap << endl;
+
+    return -1;
+}
+
+#ifdef D_INTERACTIVE_15
+//..................................................        ------hax0red versin of map vvvvvv-------
+//.....###.###.#############.#####.#######.###......        #########################################
+//....#   #   #             #     #       #   #.....        #   #   #             #     #       #   #
+//....# # # # ######### ### # ### ##### # ### #.....        # # # # ######### ### # ### ##### # ### #
+//....# #   #         # #     # #       #     #.....        # #   #         # #     # #       #     #
+//....# ############# # ####### ############# #.....        # ############# # ####### ############# #
+//....#           #     #   #     #       #   #.....        #           #     #   #     #       #   #
+//....# ######### ### ### # # # ### ##### # ##......        # ######### ### ### # # # ### ##### # ###
+//....# #       #   # #   # # #     #   #   # #.....        # #       #   # #   # # #     #   #   # #
+//....# # ##### ### ### ### # ####### # ##### #.....        # # ##### ### ### ### # ####### # ##### #
+//....#   #   # # #       # #         # #k    #.....        #   #   # # #       # #         # #k    #
+//.....###### # # ######### ########### ##### #.....        ####### # # ######### ########### ##### #
+//....#       # #     #     #         # #   # #.....        #       # #     #     #         # #   # #
+//....# # ### # # ### # ##### ##### # # # # # #.....        # # ### # # ### # ##### ##### # # # # # #
+//....# #   # #   #   # #   #     # # #   # # #.....        # #   # #   #   # #   #     # # #   # # #
+//....# ### # ### ##### # # ##### # # ##### # #.....        # ### # ### ##### # # ##### # # ##### # #
+//....#   # #   # #     # #   #   # #     # # #.....        #   # #   # #     # #   #   # #     # # #
+//.....## # ### # # ##### ##### ### # ##### # #.....        ### # ### # # ##### ##### ### # ##### # #
+//....# # # #   # #     #       # # # #     # #.....        # # # # x # #     #       # # # #     # #
+//....# # # ##### ##### ####### # # ### ##### #.....        # # # ##### ##### ####### # # ### ##### #
+//....# # #     # #   #   #   #   #   # #     #.....        # # #     # #   #   #   #   #   # #     #
+//....# # ##### # # ##### # # # ##### # # ### #.....        # # ##### # # ##### o # # ##### # # ### #
+//....#   #   #   #     # #o# # # - #   #   # #.....        #   #   #   #     # # # # #   #   #   # #
+//....# ### # ##### # # # ### ### # # ##.## # #..... +      # ### # ##### # # # ### ### # # ##### # #
+//....# #   #   #   # # #   #     # #   #   # #.....        # #   #   #   # # #   #     # #   #   # #
+//....# ##### # ##### ### # ####### ### # ### #.....        # ##### # ##### ### # ####### ### # ### #
+//....# #     #     # #   # #     #   #   #   #.....        # #     #     # #   # #     #   #   #   #
+//....# # ######### # # ##### ### ### ### ####......        # # ######### # # ##### ### ### ### #####
+//....#   #   ┼   # # #     # #     # #   #   #.....        #   #       # # #     # #     # #   #   #
+//.....#### # ##### # ##### # # ### # ##### # #.....        ##### # ##### # ##### # # ### # ##### # #
+//....# #   #     #       #   #   # #       # #.....        # #   #     #       #   #   # #       # #
+//....# # ####### ####### ####### ##.######## #.....        # # ####### ####### ####### ########### #
+//....# #     # #       # #     #   #         #.....        # #     # #       # #     #   #         #
+//....# ##### # ####### # ##### ### # ########......        # ##### # ####### # ##### ### # #########
+//....# #   #     #   # # #   #   #   #       #.....        # #   #     #   # # #   #   #   #       #
+//....# # # ##### # # # # # # ### ######### # #.....        # # # ##### # # # # # # ### ######### # #
+//....#   #     #   # # # # #           #   # #.....        #   #     #   # # # # #           #   # #
+//....# ### ######### # # # ########### # ### #.....        # ### ######### # # # ########### # ### #
+//....#   #         # #   # #     #     # # # #.....        #   #         # #   # #     #     # # # #
+//.....## ##### ##### ##### # ### # ##### # # #.....        ### ##### ##### ##### # ### # ##### # # #
+//....#       #             #   #         #   #..... +      #       #             #   #         #   #
+//.....#######.#############.###.#########.###......        #########################################
+
+int day15_i(const string& program)
+{
+    // useful to have disasm around!
+    //d15_disasm(program);
+
+    IntProc ip(program);
+    d15_map smap(50);
+
+    for(;;)
+    {
+        cout << smap << endl;
+
+        int c = _getch();
+        int command = 0;
+        switch (c)
+        {
+        case 27: return 0;
+
+        case 'k': command = 1; break;
+        case 'j': command = 2; break;
+        case 'h': command = 3; break;
+        case 'l': command = 4; break;
+        default: continue;
+        }
+
+        ip.set_input({ command });
+        ip.run();
+
+        auto result = ip.read_output();
+        auto wpos = smap.pos + d15_moves[command];
+        smap.set(wpos, (int8_t)result);
+
+        if (result)
+            smap.pos = wpos;
+    }
+
+    return -1;
+}
+#endif
+
+
+int day15_2(const string& program)
+{
+    IntProc ip(program);
+    d15_map smap(move(d15_extract_map(ip)));
+
+    // change the k to an O
+    auto it_console = find(smap.tiles.begin(), smap.tiles.end(), 2);
+    *it_console = 10;
+
+    d15_map nmap = smap;
+    int nsteps = 0;
+    bool changed;
+    do {
+        nsteps++;
+        changed = false;
+
+        for (int y = 1; y < 40; ++y)
+        {
+            auto it_o = smap.tiles.begin() + (y * nmap.width + 1);
+            auto it_n = nmap.tiles.begin() + (y * nmap.width + 1);
+            for (int x = 1; x < 40; ++x, ++it_o, ++it_n)
+            {
+                if (*it_n == 0 || *it_n == 10)
+                    continue;
+
+                if (*(it_o - 1) == 10 || *(it_o + 1) == 10 || *(it_o - smap.width) == 10 || *(it_o + smap.width) == 10)
+                {
+                    changed = true;
+                    *it_n = 10;
+                }
+            }
+        }
+
+        smap.tiles = nmap.tiles;
+    } while (changed);
+
+    // nothing changed on the final step
+    nsteps--;
+
+    //cout << "\n after " << nsteps << ":\n\n" << smap << "\n" << endl;
+    return nsteps;
+}
+
+// -------------------------------------------------------------------
+
 
 int main()
 {
@@ -1361,6 +1934,10 @@ int main()
 
     cout << GARLAND(2) << "  advent of code 2019  " << GARLAND(2) << endl;
 
+#ifdef D_INTERACTIVE_15
+    day15_i(LOADSTR(15));
+    return 1;
+#endif
 
     test(2, day1(READ("12")));
     test(2, day1(READ("14")));
@@ -1491,6 +2068,20 @@ int main()
 
     gogogo(day13(LOADSTR(13)), 216);
     nononoD(day13_2(LOADSTR(13)), 10025);
+
+
+    test(31, day14(LOAD(14t)));
+    test(165, day14(LOAD(14t2)));
+    test(2210736, day14(LOAD(14t3)));
+    nononoD(day14(LOAD(14)));
+
+    nest(460664, day14_2(LOAD(14t3)));
+    nonono(day14_2(LOAD(14)));
+
+
+    gogogo(day15(LOADSTR(15)));
+    gogogo(day15_2(LOADSTR(15)));
+
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();

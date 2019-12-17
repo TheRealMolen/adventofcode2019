@@ -9,6 +9,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="DIsasm">
+      <UniqueIdentifier>{8426edc5-e40d-4a49-bd25-779fa372b327}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="harness.cpp">
@@ -87,10 +90,28 @@
     <Text Include="data\day13.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day14t.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day14t2.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day14t3.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day14.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day15.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="data\day15.s">
+      <Filter>DIsasm</Filter>
     </None>
   </ItemGroup>
 </Project>

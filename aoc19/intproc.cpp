@@ -195,7 +195,7 @@ const char* IntProc::get_mode_str(word_t instr, int opnum)
     if (mode == 0)
         return "@";
     if (mode == 1)
-        return "#";
+        return "";
     if (mode == 2)
         return "rel + @";
 
@@ -203,15 +203,58 @@ const char* IntProc::get_mode_str(word_t instr, int opnum)
 }
 
 
-void IntProc::dump(const list<word_t>& entries) const
+string IntProc::display_operand(int opnum, word_t instr_pc, const IntProcSymbols& sym, bool is_data) const
+{
+    auto instr = fetch(instr_pc);
+    auto mode = calc_op_mode(instr, opnum);
+
+    auto fetched = fetch(instr_pc + opnum + 1);
+
+    auto& lookup = is_data ? sym.variables : sym.locations;
+
+    ostringstream os;
+    if (mode == 2)
+        os << "rel + ";
+
+    auto it_sym = lookup.find(fetched);
+    if (it_sym != lookup.end())
+    {
+        if (!is_data)
+            os << '<';
+
+        os << it_sym->second;
+
+        if (!is_data)
+            os << '>';
+    }
+    else
+    {
+        if (mode != 1)
+            os << "@";
+        os << fetched;
+    }
+
+    return os.str();
+}
+
+
+void IntProc::dump(const IntProcSymbols& sym) const
+{
+    dump(cout, sym);
+}
+
+
+void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
 {
     map<word_t, string> disasm;
     vector<bool> code;
     code.resize(mem.size(), false);
-    list<word_t> entry_points(entries);
+
+    list<word_t> entry_points;
+    for (auto& loc : sym.locations)
+        entry_points.push_back(loc.first);
 
     ostringstream os;
-
     while(!entry_points.empty())
     {
         // this intentionally hides the class variable :/
@@ -232,28 +275,55 @@ void IntProc::dump(const list<word_t>& entries) const
             switch (opcode)
             {
             case 1: // add
-                os << "add " << get_mode_str(instr, 0) << fetch(pc + 1) << ", " << get_mode_str(instr, 1) << fetch(pc + 2) << ", " << get_mode_str(instr, 2) << fetch(pc + 3);
+                // this is often used as mov
+                if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) == 0)
+                {
+                    os << "mov " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true) << "   # ";
+                }
+                else if (calc_op_mode(instr, 1) == 1 && fetch(pc + 2) == 0)
+                {
+                    os << "mov " << display_operand(0, pc, sym, true) << ", " << display_operand(2, pc, sym, true) << "   # ";
+                }
+                    
+                os << "add " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true);
                 pc += 4;
                 break;
 
             case 2: // mul
-                os << "mul " << get_mode_str(instr, 0) << fetch(pc + 1) << ", " << get_mode_str(instr, 1) << fetch(pc + 2) << ", " << get_mode_str(instr, 2) << fetch(pc + 3);
+                // this is often used as a mov
+                if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) == 1)
+                {
+                    os << "mov " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true) << "   # ";
+                }
+                else if (calc_op_mode(instr, 1) == 1 && fetch(pc + 2) == 1)
+                {
+                    os << "mov " << display_operand(0, pc, sym, true) << ", " << display_operand(2, pc, sym, true) << "   # ";
+                }
+
+                os << "mul " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true);
                 pc += 4;
                 break;
 
             case 3: // in
-                os << "in  " << get_mode_str(instr, 0) << fetch(pc + 1);
+                os << "in  " << display_operand(0, pc, sym, true);
                 pc += 2;
                 break;
 
             case 4: // out
-                os << "out " << get_mode_str(instr, 0) << fetch(pc + 1);
+                os << "out " << display_operand(0, pc, sym, true);
                 pc += 2;
                 break;
 
             case 5: // jnz
             {
-                os << "jnz " << get_mode_str(instr, 0) << fetch(pc + 1) << ", " << get_mode_str(instr, 1) << fetch(pc + 2);
+                // sometimes this is a straight jmp
+                if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) != 0)
+                {
+                    os << "jmp " << display_operand(1, pc, sym, false) << "   # ";
+                }
+
+                os << "jnz " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, false);
+
                 auto dest_mode = calc_op_mode(instr, 1);
                 if (dest_mode != 2)
                 {
@@ -262,7 +332,7 @@ void IntProc::dump(const list<word_t>& entries) const
                 }
                 else
                 {
-                    os << "   ; NOTE: unable to guess jump destination";
+                    os << "   # NOTE: unable to guess jump destination";
                 }
                 pc += 3;
                 break;
@@ -270,7 +340,14 @@ void IntProc::dump(const list<word_t>& entries) const
 
             case 6: // jz
             {
-                os << "jz  " << get_mode_str(instr, 0) << fetch(pc + 1) << ", " << get_mode_str(instr, 1) << fetch(pc + 2);
+                // sometimes this is a straight jmp
+                if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) == 0)
+                {
+                    os << "jmp " << display_operand(1, pc, sym, false) << "   # ";
+                }
+                
+                os << "jz  " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, false);
+
                 auto dest_mode = calc_op_mode(instr, 1);
                 if (dest_mode != 2)
                 {
@@ -279,19 +356,19 @@ void IntProc::dump(const list<word_t>& entries) const
                 }
                 else
                 {
-                    os << "   ; NOTE: unable to guess jump destination";
+                    os << "   # NOTE: unable to guess jump destination";
                 }
                 pc += 3;
                 break;
             }
 
             case 7: // slt
-                os << "slt " << get_mode_str(instr, 0) << fetch(pc + 1) << ", " << get_mode_str(instr, 1) << fetch(pc + 2) << ", " << get_mode_str(instr, 2) << fetch(pc + 3);
+                os << "slt " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true);
                 pc += 4;
                 break;
 
             case 8: // seq
-                os << "seq " << get_mode_str(instr, 0) << fetch(pc + 1) << ", " << get_mode_str(instr, 1) << fetch(pc + 2) << ", " << get_mode_str(instr, 2) << fetch(pc + 3);
+                os << "seq " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true);
                 pc += 4;
                 break;
 
@@ -332,7 +409,16 @@ void IntProc::dump(const list<word_t>& entries) const
         {
             os.str("");
             os.clear();
-            os << setw(4) << a << setw(0) << "    .data " << mem[a];
+
+            os << setw(4) << a << "    ";
+
+            auto itvar = sym.variables.find(a);
+            if (itvar != sym.variables.end())
+                os << itvar->second << ": ";
+            else
+                os << ".data ";
+
+            os << mem[a];
             disasm.emplace(a, move(os.str()));
         }
     }
@@ -340,6 +426,12 @@ void IntProc::dump(const list<word_t>& entries) const
     // ...dump the whole lot!
     for (auto entry : disasm)
     {
-        cout << entry.second << endl;
+        auto itloc = sym.locations.find(entry.first);
+        if (itloc != sym.locations.end())
+        {
+            out << "\n<" << itloc->second << ">:\n";
+        }
+
+        out << entry.second << endl;
     }
 }
