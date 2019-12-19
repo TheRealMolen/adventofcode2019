@@ -96,8 +96,6 @@ struct Sparkle
 
 int twinkleforever()
 {
-    COORD zerozero = { 0, 0 };
-
     cout << "                          " << GARLAND(5) << "  press a key  " << GARLAND(5) << endl;
 
     // step 1. read back current screen
@@ -119,8 +117,8 @@ int twinkleforever()
 
     // step 2: make a big ol' list of all the coords that are free
     vector<COORD> free;
-    int wndwidth = screeninfo.srWindow.Right - screeninfo.srWindow.Left;
-    int wndheight = screeninfo.srWindow.Bottom - screeninfo.srWindow.Top;
+    //int wndwidth = screeninfo.srWindow.Right - screeninfo.srWindow.Left;
+    //int wndheight = screeninfo.srWindow.Bottom - screeninfo.srWindow.Top;
     size_t i = 0;
     COORD pos = { screeninfo.srWindow.Left,screeninfo.srWindow.Top };
     for (; pos.Y < screeninfo.srWindow.Bottom; ++pos.Y)

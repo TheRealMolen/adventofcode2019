@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <tmmintrin.h>
 #include <map>
 #include <memory>
@@ -363,7 +364,7 @@ struct d6_planet
     vector<string> children;
 
     d6_planet() {/**/}
-    d6_planet(const string& parent, vector<string>& children) : parent(parent), children(children){/**/}
+    d6_planet(const string& parent, const vector<string>& children) : parent(parent), children(children){/**/}
 };
 
 int d6_count_orbits(const string& start, const map<string, d6_planet>& subtrees, int depth=0)
@@ -446,7 +447,6 @@ size_t d6_count_transfers(const string& start, const string& end, const map<stri
 
     path_to_start.pop_back();
     path_to_end.pop_back();
-    size_t shared = 0;
     auto it_s = path_to_start.begin();
     auto it_e = path_to_end.begin();
     while(*it_s == *it_e && it_s != path_to_start.end() && it_e != path_to_end.end())
@@ -672,27 +672,28 @@ T gcd(T a, T b)
     return a;
 }
 
-struct d10_pt
+template<typename T>
+struct pt2d
 {
-    int16_t x, y;
+    T x, y;
 
-    d10_pt() {/**/}
-    d10_pt(int16_t x, int16_t y) : x(x), y(y) {/**/}
-    d10_pt(initializer_list<int> l) {
+    pt2d() {/**/}
+    pt2d(T x, T y) : x(x), y(y) {/**/}
+    pt2d(initializer_list<T> l) {
         auto it = l.begin();
         x = *(it++);
         y = *it;
     }
 
-    bool operator==(const d10_pt& rhs) const
+    bool operator==(const pt2d<T>& rhs) const
     {
         return x == rhs.x && y == rhs.y;
     }
-    bool operator!=(const d10_pt& rhs) const
+    bool operator!=(const pt2d<T>& rhs) const
     {
         return x != rhs.x || y != rhs.y;
     }
-    bool operator<(const d10_pt& rhs) const
+    bool operator<(const pt2d<T>& rhs) const
     {
         if (x < rhs.x)
             return true;
@@ -702,33 +703,36 @@ struct d10_pt
             return true;
         return false;
     }
-    d10_pt& operator+=(const d10_pt& rhs)
+    pt2d<T>& operator+=(const pt2d<T>& rhs)
     {
         x += rhs.x;
         y += rhs.y;
         return *this;
     }
-    d10_pt operator+(const d10_pt& rhs) const
+    pt2d<T> operator+(const pt2d<T>& rhs) const
     {
-        return d10_pt(x + rhs.x, y + rhs.y);
+        return pt2d<T>(x + rhs.x, y + rhs.y);
     }
-    d10_pt operator-(const d10_pt& rhs) const
+    pt2d<T> operator-(const pt2d<T>& rhs) const
     {
-        return d10_pt(x - rhs.x, y - rhs.y);
+        return pt2d<T>(x - rhs.x, y - rhs.y);
     }
 
     void simplify()
     {
-        int div = abs(gcd(x, y));
+        T div = (T)abs(gcd(x, y));
         x /= div;
         y /= div;
     }
 };
-ostream& operator<<(ostream& os, const d10_pt& p)
+template<typename T>
+ostream& operator<<(ostream& os, const pt2d<T>& p)
 {
     os << '<' << p.x << ", " << p.x << '>';
     return os;
 }
+
+typedef pt2d<int16_t> d10_pt;
 
 void d10_read_asteroids(const stringlist& input, set<d10_pt>& out_points)
 {
@@ -1263,12 +1267,12 @@ int day13(const string& program)
         auto y = ip.read_output();
         auto t = ip.read_output();
 
-        screen[{(int)x, (int)y}] = (int)t;
+        screen[{(int16_t)x, (int16_t)y}] = (int16_t)t;
     }
 
     int nblocks = 0;
     d10_pt minp((int16_t)10000, (int16_t)10000);
-    d10_pt maxp((int16_t)-10000, (int16_t)-100000);
+    d10_pt maxp((int16_t)-10000, (int16_t)-10000);
     for (const auto& tile : screen)
     {
         minp.x = min(minp.x, tile.first.x);
@@ -1702,7 +1706,7 @@ struct d15_node
 };
 
 
-int d15_check_tile(int x, int y, const IntProc& ip)
+int8_t d15_check_tile(int x, int y, const IntProc& ip)
 {
     if (x == 0 || y == 0)
         return 0;
@@ -1732,9 +1736,9 @@ d15_map d15_extract_map(const IntProc& ip)
     auto size = ip.peek(139) + 1;
     d15_map smap(size);
 
-    for (int y = 0; y < size; ++y)
+    for (int16_t y = 0; y < size; ++y)
     {
-        for (int x = 0; x < size; ++x)
+        for (int16_t x = 0; x < size; ++x)
         {
             smap.set({ x,y }, d15_check_tile(x, y, ip));
         }
@@ -1784,8 +1788,8 @@ int day15(const string& program)
                 wpos = smap.pos + d15_moves[moves.back().return_move];
                 smap.pos = wpos;
 
-                auto result = ip.read_output();
-                _ASSERT(result != 0);
+                auto res2 = ip.read_output();
+                _ASSERT(res2 != 0);
             }
             moves.pop_back();
         }
@@ -1926,6 +1930,366 @@ int day15_2(const string& program)
 
 // -------------------------------------------------------------------
 
+void d16_cycle(const vector<char>& in, vector<char>& out)
+{
+    out.clear();
+    const vector<int> base{ 0,1,0,-1 };
+    for (size_t o = 1; o <= in.size(); ++o)
+    {
+        size_t b = 1;
+        size_t bi = 0;
+        if (b == o)
+        {
+            b = 0;
+            bi = (bi + 1) & 0x3;
+        }
+
+        int el = 0;
+        for (size_t i = 0; i < in.size(); ++i)
+        {
+            el += in[i] * base[bi];
+
+            ++b;
+            if (b == o)
+            {
+                b = 0;
+                bi = (bi + 1) & 0x3;
+            }
+        }
+
+        el = abs(el);
+        out.push_back(el % 10);
+    }
+}
+
+string day16(const string& input, int ncycles)
+{
+    vector<char> curr;
+    for (auto i : input)
+        curr.push_back(i - '0');
+
+    vector<char> next;
+    next.resize(input.size());
+
+    for (int c = 0; c < ncycles; ++c)
+    {
+        d16_cycle(curr, next);
+        next.swap(curr);
+    }
+
+    string finish;
+    for (auto it = curr.begin(); it != curr.begin() + 8; ++it)
+        finish.append(1, *it + '0');
+    return finish;
+}
+
+string day16_2(const string& input)
+{
+    // Unsurprisingly, brute force is not a thing
+    //  THINKS: the point our 8 char sequence starts is FAR (5,970,443 through a sequence that's 650x10,000 = 6,500,000 long)
+    //  by that point, most of the high frequency churn will have been wiped out, and because it's near the end, the tail is likely irrelevant
+    //
+    //  NEXT STEP> write out the expression showing the nonzero contributions to our 8 digits from the previous cycle
+
+    const int ncycles = 100;
+    const int nrepeats = 10000;
+    vector<char> curr;
+    curr.reserve(input.size());
+    for (auto i : input)
+        curr.push_back(i - '0');
+
+    vector<char> next;
+    next.resize(curr.size());
+
+    for (int c = 0; c < ncycles; ++c)
+    {
+        d16_cycle(curr, next);
+        next.swap(curr);
+    }
+
+    string off_str = input.substr(0, 7);
+    int offset = stoi(off_str);
+    string finish;
+    for (auto it = curr.begin() + offset; it != curr.begin() + offset + 8; ++it)
+        finish.append(1, *it + '0');
+    return finish;
+}
+
+// -------------------------------------------------------------------
+
+typedef pt2d<int16_t> d17_pt;
+
+struct d17_2dmap
+{
+    size_t width;
+    size_t height;
+    vector<char> tiles;
+
+    d17_2dmap(const stringlist& lines)
+    {
+        width = lines.front().size() + 2;
+        height = lines.size() + 2;
+        _ASSERT(width < 0xffff && height < 0xffff);
+
+        tiles.reserve(width * height);
+
+        // pad the top
+        fill_n(back_inserter(tiles), width, '.');
+        for (const auto& line : lines)
+        {
+            tiles.push_back('.');   // pad left
+            copy(line.begin(), line.end(), back_inserter(tiles));
+            tiles.push_back('.');   // pad right
+        }
+        // pad the bottom
+        fill_n(back_inserter(tiles), width, '.');
+    }
+
+    d17_pt find_robot() const
+    {
+        const string bot("^<>v");
+        auto it = find_first_of(tiles.begin(), tiles.end(), bot.begin(), bot.end());
+        auto index = distance(tiles.begin(), it);
+
+        return d17_pt((int16_t)(index % width), (int16_t)(index / width));
+    }
+
+    char get(size_t x, size_t y) const
+    {
+        return tiles[x + y*width];
+    }
+    char get(const d17_pt& p) const
+    {
+        return tiles[p.x + p.y*width];
+    }
+};
+ostream& operator<<(ostream& os, const d17_2dmap& m)
+{
+    auto it = m.tiles.begin();
+    for (size_t y = 0; y < m.height; ++y, it += m.width)
+    {
+        os.write(&*it, m.width);
+        os << '\n';
+    }
+    return os;
+}
+
+void d17_disasm(const string& program)
+{
+    ip_disasm(program, "17", IntProcSymbols({
+        { 330, "const_zero" },
+        { 331, "const_one" },
+        { 332, "use_intro_mode" },
+        { 570, "tmp" },
+        { 571, "flipflip_pc36" },
+        { 575, "continuous_video_enable" },
+        { 1403, "bss" },
+    },
+    {
+        { 579, "execute" },
+    }));
+}
+
+int d17_sum_alignments(const d17_2dmap& m)
+{
+    size_t total = 0;
+    // NB: no intersections on outside edge
+    for (size_t y = 1; y < m.height-1; ++y)
+    {
+        auto it = m.tiles.begin() + (y * m.width) + 1;
+        for (size_t x = 1; x < m.width-1; ++x, ++it)
+        {
+            if ((*it != '#') ||
+                (*(it - 1) != '#') ||
+                (*(it + 1) != '#') ||
+                (*(it - m.width) != '#') ||
+                (*(it + m.width) != '#'))
+                continue;
+
+            size_t alignment = (x-1) * (y-1);   // -1 for padding
+            total += alignment;
+        }
+    }
+
+    return (int)total;
+}
+
+void d17_extract_map(const string& program, stringlist& out_lines)
+{
+    IntProc ip(program);
+    ip.run();
+    vector<char> output;
+    output.reserve(10000);
+    while (ip.has_output())
+        output.push_back((char)ip.read_output());
+
+    string str_out(output.begin(), output.end());
+    str_out.erase(str_out.find_last_not_of("\n\r") + 1);
+    out_lines = stringlist::fromstring(str_out);
+}
+
+int day17(const string& program)
+{
+    stringlist lines;
+    d17_extract_map(program, lines);
+    d17_2dmap m(lines);
+
+    // write out the map
+    {
+        ofstream ofs("data/day17_map.txt");
+        ofs << m << endl;
+    }
+
+    return d17_sum_alignments(m);
+}
+
+int d17_dir_from_chr(char bot)
+{
+    switch (bot)
+    {
+    case '^': return 0;
+    case '>': return 1;
+    case 'v': return 2;
+    case '<': return 3;
+    }
+    throw "Bad Robot!";
+}
+static const vector<d17_pt> d17_dirs{ {0,-1}, {1,0}, {0,1}, {-1,0} };
+
+string d17_build_full_route(const d17_2dmap& m)
+{
+    ostringstream route;
+
+    d17_pt pos = m.find_robot();
+    int dir = d17_dir_from_chr(m.get(pos));
+
+    for (;;)
+    {
+        const d17_pt dir_vec = d17_dirs[dir];
+
+        // try to move all the way forwards
+        int dist = 0;
+        while (m.get(pos + dir_vec) == '#')
+        {
+            pos += dir_vec;
+            ++dist;
+        }
+        if (dist > 0)
+            route << dist << ',';
+
+        // now try to turn to find more path
+        int ldir = (dir + 3) & 3;
+        if (m.get(pos + d17_dirs[ldir]) == '#')
+        {
+            dir = ldir;
+            route << "L,";
+            continue;
+        }
+        int rdir = (dir + 1) & 3;
+        if (m.get(pos + d17_dirs[rdir]) == '#')
+        {
+            dir = rdir;
+            route << "R,";
+            continue;
+        }
+        
+        // nope, i guess that was it!
+        break;
+    }
+
+    // NB: this has a trailing comma, but that might be useful for common feature analysis
+    return route.str();
+}
+
+int64_t day17_2(const string& program)
+{
+    stringlist lines;
+    d17_extract_map(program, lines);
+    d17_2dmap m(lines);
+
+    string full_route = d17_build_full_route(m);
+    cout << full_route << endl;
+
+    size_t shortest_a = 0;
+    for (;;)
+    {
+        // assume we have a repeated section starting at pos 0, go find it
+        auto start_a = full_route.begin();
+        auto repeat_a = full_route.end();
+        auto len_a = shortest_a ? (shortest_a - 1) : (full_route.size() / 2);
+        for ( ; len_a > 1; --len_a)
+        {
+            auto end_a = start_a + len_a;
+            repeat_a = search(end_a + 1, full_route.end(), start_a, end_a);
+            if (repeat_a != full_route.end())
+            {
+                shortest_a = len_a;
+                break;
+            }
+        }
+
+        string a(move(full_route.substr(0, len_a)));
+        string b, c;
+        cout << "Found potential A: '" << a << "' repeated at " << distance(start_a, repeat_a) << endl;
+
+        // bust up into fragments
+        vector<string> fragments;
+        fragments.emplace_back(start_a + len_a, repeat_a);
+        string master = "A,$1,A";
+        if (repeat_a + len_a != full_route.end())
+        {
+            fragments.emplace_back(repeat_a + len_a, full_route.end());
+            master += ",$2";
+        }
+
+        for (auto const& frag : fragments)
+            cout << "..fragment: '" << frag << "'\n";
+        cout << "..master: " << master << endl;
+
+
+        // same again for B: assume it starts at the beginning of fragment 1 and find the rest
+        auto start_b = fragments.front().begin();
+        auto len_b = fragments.front().size();
+        for (; len_b > 1; --len_b)
+        {
+            for (auto const& frag : fragments)
+            {
+                auto itstart = frag.begin();
+                if (&frag == &fragments.front())
+                {
+                    itstart = start_b + len_b + 1;
+                }
+
+                auto end_b = start_b + len_b;
+
+                auto repeat_b = search(itstart, frag.end(), start_b, start_b + len_b);
+                if (repeat_b == frag.end())
+                    continue;
+
+                // we have a potential B omg
+                if (&frag == &fragments.front())
+                {
+                    b = string(start_b, end_b);
+                    vector<string> newfragments;
+
+                }
+                else
+                {
+                    throw "writeme";
+                }
+            }
+        }
+
+        break;
+    }
+
+    return -1;
+}
+
+
+// -------------------------------------------------------------------
+
+
 
 int main()
 {
@@ -1938,6 +2302,7 @@ int main()
     day15_i(LOADSTR(15));
     return 1;
 #endif
+
 
     test(2, day1(READ("12")));
     test(2, day1(READ("14")));
@@ -2081,6 +2446,28 @@ int main()
 
     gogogo(day15(LOADSTR(15)));
     gogogo(day15_2(LOADSTR(15)));
+
+
+    test<string>("48226158", day16("12345678", 1));
+    test<string>("34040438", day16("12345678", 2));
+    test<string>("03415518", day16("12345678", 3));
+    test<string>("01029498", day16("12345678", 4));
+    test<string>("24176176", day16("80871224585914546619083218645595", 100));
+    test<string>("73745418", day16("19617804207202209144916044189917", 100));
+    test<string>("52432133", day16("69317163492948606335995924319873", 100));
+    nononoD(day16(LOADSTR(16), 100));
+
+    // TODO: return to 16 pt2!
+    nest(string("24176176"), day16_2("03036732577212944063491565474664"));
+    nest(string("73745418"), day16_2("02935109699940807407585447034323"));
+    nest(string("53553731"), day16_2("03081770884921959731165446850517"));
+    nonono(day16_2(LOADSTR(16)));
+
+
+    test(76, d17_sum_alignments(LOAD(17t)));
+    gogogo(day17(LOADSTR(17)));
+
+    gogogo(day17_2(LOADSTR(17)));
 
 
     // animate snow falling behind the characters in the console until someone presses a key

@@ -57,9 +57,9 @@ IntProc::IntProc(const vector<word_t>& _mem) : pc(0), rel(0), mem(_mem), inputs(
 }
 
 
-void IntProc::set_input(const list<word_t>& inputs)
+void IntProc::set_input(const list<word_t>& _inputs)
 {
-    this->inputs = inputs;
+    inputs = _inputs;
 }
 
 
@@ -68,7 +68,7 @@ bool IntProc::run()
     // set up our bss section :)
     if (mem.size() <= (size_t)codesize)
     {
-        mem.resize(mem.size() + 2000);
+        mem.resize(mem.size() + 20000);
     }
 
     for (;;)
@@ -244,6 +244,7 @@ void IntProc::dump(const IntProcSymbols& sym) const
 }
 
 
+#pragma warning(disable: 4458)
 void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
 {
     map<word_t, string> disasm;
@@ -435,3 +436,5 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
         out << entry.second << endl;
     }
 }
+
+#pragma warning(default: 4458)

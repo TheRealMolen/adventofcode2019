@@ -105,12 +105,27 @@
     <Text Include="data\day15.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day16.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day17.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day17t.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day17_map.txt">
+      <Filter>DIsasm</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="data\day15.s">
+      <Filter>DIsasm</Filter>
+    </None>
+    <None Include="data\day17.s">
       <Filter>DIsasm</Filter>
     </None>
   </ItemGroup>
