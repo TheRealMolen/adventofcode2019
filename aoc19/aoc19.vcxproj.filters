@@ -12,6 +12,9 @@
     <Filter Include="DIsasm">
       <UniqueIdentifier>{8426edc5-e40d-4a49-bd25-779fa372b327}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\01-10">
+      <UniqueIdentifier>{b925e27f-494c-4e3b-96b2-81d5212168a8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="harness.cpp">
@@ -33,57 +36,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="data\day1.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day2.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day3.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day5.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day6.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day6t.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day6t2.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day7.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day8.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day9.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10t.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10t2.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10t3.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10t4.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10t5.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
-    <Text Include="data\day10t_2.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
     <Text Include="data\day11.txt">
       <Filter>Resource Files</Filter>
     </Text>
@@ -115,7 +67,61 @@
       <Filter>Resource Files</Filter>
     </Text>
     <Text Include="data\day17_map.txt">
-      <Filter>DIsasm</Filter>
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day17_video.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day1.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day2.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day3.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day5.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day6.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day6t.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day6t2.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day7.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day8.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day9.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10t.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10t_2.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10t2.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10t3.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10t4.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
+    <Text Include="data\day10t5.txt">
+      <Filter>Resource Files\01-10</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>

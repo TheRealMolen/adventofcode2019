@@ -172,6 +172,7 @@
     <Text Include="data\day17.txt" />
     <Text Include="data\day17t.txt" />
     <Text Include="data\day17_map.txt" />
+    <Text Include="data\day17_video.txt" />
     <Text Include="data\day2.txt" />
     <Text Include="data\day3.txt" />
     <Text Include="data\day5.txt" />

@@ -2118,12 +2118,7 @@ void d17_extract_map(const string& program, stringlist& out_lines)
 {
     IntProc ip(program);
     ip.run();
-    vector<char> output;
-    output.reserve(10000);
-    while (ip.has_output())
-        output.push_back((char)ip.read_output());
-
-    string str_out(output.begin(), output.end());
+    string str_out = ip.read_output_string();
     str_out.erase(str_out.find_last_not_of("\n\r") + 1);
     out_lines = stringlist::fromstring(str_out);
 }
@@ -2201,14 +2196,78 @@ string d17_build_full_route(const d17_2dmap& m)
     return route.str();
 }
 
-int64_t day17_2(const string& program)
+string replace_all(const string& haystack, const string& needle, const string& replacement)
 {
-    stringlist lines;
-    d17_extract_map(program, lines);
-    d17_2dmap m(lines);
+    string out(haystack);
+    auto nlen = needle.size();
 
-    string full_route = d17_build_full_route(m);
-    cout << full_route << endl;
+    for (;;)
+    {
+        auto it = find_end(out.begin(), out.end(), needle.begin(), needle.end());
+        if (it == out.end())
+            return out;
+
+        out.replace(it, it+nlen, replacement);
+    }
+}
+
+struct d17_program
+{
+    string master;
+    string a, b, c;
+    bool clean;
+
+    d17_program() : clean(false) {/**/}
+
+
+    void remove_trailing_comma(string& s)
+    {
+        if (s.back() == ',')
+            s.erase(s.end() - 1);
+    }
+    void cleanup()
+    {
+        remove_trailing_comma(master);
+        remove_trailing_comma(a);
+        remove_trailing_comma(b);
+        remove_trailing_comma(c);
+        clean = true;
+    }
+
+    bool is_length_valid() const
+    {
+        size_t max_len = 20;
+        if (!clean)
+            max_len++;
+
+        if (master.size() > max_len ||
+            a.size() > max_len ||
+            b.size() > max_len ||
+            c.size() > max_len)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool is_master_valid() const
+    {
+        return (master.find_first_not_of("ABC,") == string::npos);
+    }
+
+    bool is_valid() const
+    {
+        return is_length_valid() && is_master_valid();
+    }
+};
+
+d17_program d17_factorise(const string& full_route)
+{
+    d17_program curr;
+    curr.master = full_route;
+
+    d17_program best = curr;
 
     size_t shortest_a = 0;
     for (;;)
@@ -2217,7 +2276,7 @@ int64_t day17_2(const string& program)
         auto start_a = full_route.begin();
         auto repeat_a = full_route.end();
         auto len_a = shortest_a ? (shortest_a - 1) : (full_route.size() / 2);
-        for ( ; len_a > 1; --len_a)
+        for (; len_a > 1; --len_a)
         {
             auto end_a = start_a + len_a;
             repeat_a = search(end_a + 1, full_route.end(), start_a, end_a);
@@ -2227,63 +2286,132 @@ int64_t day17_2(const string& program)
                 break;
             }
         }
+        if (len_a == 1)
+            break;
 
-        string a(move(full_route.substr(0, len_a)));
-        string b, c;
-        cout << "Found potential A: '" << a << "' repeated at " << distance(start_a, repeat_a) << endl;
+        curr.a = move(full_route.substr(0, len_a));
+        //cout << "Found potential A: '" << a << "' repeated at " << distance(full_route.begin(), repeat_a) << endl;
+        string master(move(replace_all(full_route, curr.a, "A,")));
+        //cout << "   .. master: '" << master << "'\n";
 
-        // bust up into fragments
-        vector<string> fragments;
-        fragments.emplace_back(start_a + len_a, repeat_a);
-        string master = "A,$1,A";
-        if (repeat_a + len_a != full_route.end())
-        {
-            fragments.emplace_back(repeat_a + len_a, full_route.end());
-            master += ",$2";
-        }
-
-        for (auto const& frag : fragments)
-            cout << "..fragment: '" << frag << "'\n";
-        cout << "..master: " << master << endl;
-
-
-        // same again for B: assume it starts at the beginning of fragment 1 and find the rest
-        auto start_b = fragments.front().begin();
-        auto len_b = fragments.front().size();
+        // assume we have a repeated section starting just after A,B,
+        auto start_b = master.begin() + master.find_first_not_of("A,");
+        auto len_b = master.size() / 2;
         for (; len_b > 1; --len_b)
         {
-            for (auto const& frag : fragments)
+            auto end_b = start_b + len_b;
+            auto repeat_b = search(end_b + 1, master.end(), start_b, end_b);
+            if (repeat_b == master.end())
+                continue;
+
+            // any subroutine needs to end with comma
+            if (*(end_b - 1) != ',')
+                continue;
+
+            // it's invalid to call other movement routines
+            if (find(start_b, end_b, 'A') != end_b)
+                continue;
+
+            curr.b = move(string(start_b, end_b));
+            //cout << "Found potential B: '" << b << "'\n";
+            string master_b(move(replace_all(master, curr.b, "B,")));
+            //cout << "   .. master: '" << master_b << "'\n";
+
+            // assume we have a repeated section starting just after A,B,
+            auto start_c = master_b.begin() + master_b.find_first_not_of("AB,");
+            auto len_c = master_b.size() / 2;
+            for (; len_c > 1; --len_c)
             {
-                auto itstart = frag.begin();
-                if (&frag == &fragments.front())
-                {
-                    itstart = start_b + len_b + 1;
-                }
-
-                auto end_b = start_b + len_b;
-
-                auto repeat_b = search(itstart, frag.end(), start_b, start_b + len_b);
-                if (repeat_b == frag.end())
+                auto end_c = start_c + len_c;
+                auto repeat_c = search(end_c + 1, master_b.end(), start_c, end_c);
+                if (repeat_c == master_b.end())
                     continue;
 
-                // we have a potential B omg
-                if (&frag == &fragments.front())
-                {
-                    b = string(start_b, end_b);
-                    vector<string> newfragments;
+                // any subroutine needs to end with comma
+                if (*(end_c - 1) != ',')
+                    continue;
 
-                }
-                else
+                // it's invalid to call other movement routines
+                static const string AB = "AB";
+                if (find_first_of(start_c, end_c, AB.begin(), AB.end()) != end_c)
+                    continue;
+
+                curr.c = move(string(start_c, end_c));
+                //cout << "Found potential C: '" << c << "'\n";
+                curr.master = move(replace_all(master_b, curr.c, "C,"));
+                //cout << "   .. master: '" << master_c << "'\n";
+
+                if (curr.is_valid() || curr.master.size() < best.master.size())
                 {
-                    throw "writeme";
+                    best = curr;
+                    best.cleanup();
+
+                    //cout << "Better:\n"
+                    //    "  MSTR: " << best.master << '\n' <<
+                    //    "     A: " << best.a << '\n' <<
+                    //    "     B: " << best.b << '\n' <<
+                    //    "     C: " << best.c << endl;
+
+                    if (best.is_valid())
+                    {
+                        cout << "Found a valid program:\n"
+                            "  MSTR: " << best.master << '\n' <<
+                            "     A: " << best.a << '\n' <<
+                            "     B: " << best.b << '\n' <<
+                            "     C: " << best.c << endl;
+
+                        return best;
+                    }
                 }
             }
         }
-
-        break;
     }
 
-    return -1;
+    cout << "o no, couldn't find a valid program o_O" << endl;
+    return best;
+}
+
+int64_t d17_follow_route(const string& program, const d17_program& route)
+{
+    IntProc ip(program);
+
+    // engage "follow program" mode
+    ip.poke(0, 2);
+
+    char video_feed = false;
+
+    // input our program
+    ostringstream input_os;
+    input_os << route.master << '\n' << route.a << '\n' << route.b << '\n' << route.c << '\n' << (video_feed?'y':'n') << '\n';
+    string input_str(move(input_os.str()));
+    list<IntProc::word_t> input(input_str.begin(), input_str.end());
+    ip.set_input(input);
+
+    ip.run();
+
+    auto result = ip.read_final_output();
+
+    if (video_feed)
+    {
+        ofstream ofs("data/day17_video.txt");
+        ofs << ip.read_output_string();
+    }
+
+    return result;
+}
+
+int64_t day17_2(const string& program)
+{
+    stringlist lines;
+    d17_extract_map(program, lines);
+    d17_2dmap m(lines);
+
+    string full_route = d17_build_full_route(m);
+    //cout << full_route << endl;
+
+    d17_program route = d17_factorise(full_route);
+
+    return d17_follow_route(program, route);
 }
 
 

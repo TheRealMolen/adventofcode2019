@@ -125,6 +125,24 @@ public:
         outputs.pop_front();
         return o;
     }
+    word_t read_final_output()
+    {
+        auto o = outputs.back();
+        outputs.pop_back();
+        return o;
+    }
+    string read_output_string()
+    {
+        string s;
+        s.reserve(outputs.size());
+        for (auto c : outputs)
+        {
+            if (c > 255)
+                cerr << "WARNING: losing output " << c << " while converting to string" << endl;
+            s.push_back((char)c);
+        }
+        return s;
+    }
 
 };
 
