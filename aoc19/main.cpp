@@ -9,6 +9,7 @@
 #include <tmmintrin.h>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -1788,7 +1789,10 @@ int day15(const string& program)
                 wpos = smap.pos + d15_moves[moves.back().return_move];
                 smap.pos = wpos;
 
-                auto res2 = ip.read_output();
+#ifdef _DEBUG
+                auto res2 = 
+#endif
+                    ip.read_output();
                 _ASSERT(res2 != 0);
             }
             moves.pop_back();
@@ -1987,32 +1991,81 @@ string day16_2(const string& input)
 {
     // Unsurprisingly, brute force is not a thing
     //  THINKS: the point our 8 char sequence starts is FAR (5,970,443 through a sequence that's 650x10,000 = 6,500,000 long)
-    //  by that point, most of the high frequency churn will have been wiped out, and because it's near the end, the tail is likely irrelevant
-    //
-    //  NEXT STEP> write out the expression showing the nonzero contributions to our 8 digits from the previous cycle
+    //  by that point, most of the high frequency churn will have been wiped out
 
-    const int ncycles = 100;
-    const int nrepeats = 10000;
-    vector<char> curr;
-    curr.reserve(input.size());
-    for (auto i : input)
-        curr.push_back(i - '0');
+    // coefficients for each digit are zero until the digit before them, then 1 to the end:
+    //   0: sum(digits[offset-1 : 2*offset - 1]) %10
+    //   1: sum(digits[offset : 2*(offset+1) - 1]) %10
+    //   2: sum(digits[offset+1 : 2*(offset+2) - 1]) %10
+    //  etc.
 
-    vector<char> next;
-    next.resize(curr.size());
+    // so the only digits contributing to our digits are [offset-(1+numcycles):end]
 
-    for (int c = 0; c < ncycles; ++c)
-    {
-        d16_cycle(curr, next);
-        next.swap(curr);
-    }
+    // at the start, we also know that the digits repeat every 650 chars, so we can simplify to
+    //   tail: floor(((len-offset)/650)) * sum(digits[0:650])
+    //   0: (sum(digits[((offset-1)%650:650]) + tail) % 650
+    //   1: (sum(digits[(offset)%650:650]) + tail) % 650
+
+    // --> presumably they don't repeat every 650 chars after that though; perhaps we just run simplified logic on the last 500k digits?
+
+    size_t numcycles = 100;
+    size_t numrepeats = 10000;
+
+    size_t wavelength = input.size();
+    size_t total_len = wavelength * numrepeats;
 
     string off_str = input.substr(0, 7);
-    int offset = stoi(off_str);
-    string finish;
-    for (auto it = curr.begin() + offset; it != curr.begin() + offset + 8; ++it)
-        finish.append(1, *it + '0');
-    return finish;
+    size_t offset = stoul(off_str);
+
+    vector<uint8_t> in_block;
+    in_block.reserve(input.size());
+    for (auto in : input)
+        in_block.push_back(in - '0');
+
+    // any digits before these cannot contribute to the final result
+    size_t relevant_offset = offset - (1 + numcycles);
+
+    size_t output_offset = 1 + numcycles;
+
+    size_t work_len = total_len - relevant_offset;
+
+    vector<uint8_t> curr;
+    curr.reserve(work_len);
+    curr.insert(curr.end(), in_block.begin() + (relevant_offset % wavelength), in_block.end());
+    for (size_t i = 0; i < (work_len / wavelength); ++i)
+        curr.insert(curr.end(), in_block.begin(), in_block.end());
+
+    vector<uint8_t> next;
+    next.resize(curr.size(), 0);
+
+    for (size_t cycle = 0; cycle < numcycles; ++cycle)
+    {
+        cout << "cycle " << cycle << "...  " << flush;
+
+        auto itc = curr.begin();
+        auto itn = next.begin();
+        // just copy the first element; it's wrong but it doesn't contribute to our final digits
+        *(itn++) = *(itc++);
+
+        // sum the appropriate window for the rest of the digits
+        size_t digit_ix = relevant_offset + 1;
+        for (; itn != next.end(); ++itn, ++itc, ++digit_ix)
+        {
+            size_t newval = accumulate(itc - 1, curr.end(), 0);
+            *itn = newval % 10;
+        }
+
+        curr.swap(next);
+
+        for (auto it = curr.begin() + output_offset; it != curr.begin() + (8 + output_offset); ++it)
+            cout << (char)(*it + '0');
+        cout << endl;
+    }
+
+    ostringstream os;
+    for (auto it = curr.begin() + output_offset; it != curr.begin() + (output_offset + 8); ++it)
+        os << (char)(*it + '0');
+    return os.str();
 }
 
 // -------------------------------------------------------------------
@@ -2431,172 +2484,182 @@ int main()
     return 1;
 #endif
 
+    bool skiptotheend = false;
+#ifdef _DEBUG
+    skiptotheend = true;
+#endif
 
-    test(2, day1(READ("12")));
-    test(2, day1(READ("14")));
-    test(654, day1(READ("1969")));
-    test(33583, day1(READ("100756")));
-    gogogo(day1(LOAD(1)));
+    if (!skiptotheend)
+    {
+        test(2, day1(READ("12")));
+        test(2, day1(READ("14")));
+        test(654, day1(READ("1969")));
+        test(33583, day1(READ("100756")));
+        gogogo(day1(LOAD(1)));
 
-    test(2, day1_2(READ("14")));
-    test(966, day1_2(READ("1969")));
-    test(50346, day1_2(READ("100756")));
-    gogogo(day1_2(LOAD(1)));
-
-
-    test<string>("2,0,0,0,99", day2("1,0,0,0,99"));
-    test<string>("2,3,0,6,99", day2("2,3,0,3,99"));
-    test<string>("2,4,4,5,99,9801", day2("2,4,4,5,99,0"));
-    test<string>("30,1,1,4,2,5,6,0,99", day2("1,1,1,4,99,5,6,0,99"));
-    test<string>("3500,9,10,70,2,3,11,0,99,30,40,50", day2("1,9,10,3,2,3,11,0,99,30,40,50"));
-    gogogo<size_t>(day2Hcf(LOADSTR(2), 12, 2), 3716250);
-
-    nononoD(day2_2(LOADSTR(2)), 6472ll);
+        test(2, day1_2(READ("14")));
+        test(966, day1_2(READ("1969")));
+        test(50346, day1_2(READ("100756")));
+        gogogo(day1_2(LOAD(1)));
 
 
-    test<size_t>(6, day3(READ("R8,U5,L5,D3\nU7,R6,D4,L4")));
-    test<size_t>(159, day3(READ("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83")));
-    test<size_t>(135, day3(READ("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7")));
-    nononoD(day3(LOAD(3)));
+        test<string>("2,0,0,0,99", day2("1,0,0,0,99"));
+        test<string>("2,3,0,6,99", day2("2,3,0,3,99"));
+        test<string>("2,4,4,5,99,9801", day2("2,4,4,5,99,0"));
+        test<string>("30,1,1,4,2,5,6,0,99", day2("1,1,1,4,99,5,6,0,99"));
+        test<string>("3500,9,10,70,2,3,11,0,99,30,40,50", day2("1,9,10,3,2,3,11,0,99,30,40,50"));
+        gogogo<size_t>(day2Hcf(LOADSTR(2), 12, 2), 3716250);
 
-    test<size_t>(30, day3_2(READ("R8,U5,L5,D3\nU7,R6,D4,L4")));
-    test<size_t>(610, day3_2(READ("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83")));
-    test<size_t>(410, day3_2(READ("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7")));
-    nononoD(day3_2(LOAD(3)));
-
-
-    test<bool>(true, d4_is_code_valid(111111));
-    test<bool>(false, d4_is_code_valid(223450));
-    test<bool>(false, d4_is_code_valid(123789));
-    gogogo(day4(193651, 649729));
-
-    test<bool>(true, d4_is_code_valider(112233));
-    test<bool>(false, d4_is_code_valider(123444));
-    test<bool>(true, d4_is_code_valider(111122));
-    gogogo(day4_2(193651, 649729));
+        nononoD(day2_2(LOADSTR(2)), 6472ll);
 
 
-    gogogo(day5(LOADSTR(5)), 7988899ll);
+        test<size_t>(6, day3(READ("R8,U5,L5,D3\nU7,R6,D4,L4")));
+        test<size_t>(159, day3(READ("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83")));
+        test<size_t>(135, day3(READ("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7")));
+        nononoD(day3(LOAD(3)));
 
-    test(1ll, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 8));
-    test(0ll, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 7));
-    test(1ll, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 3));
-    test(0ll, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 10));
-    test(1ll, day5_2("3,3,1108,-1,8,3,4,3,99", 8));
-    test(0ll, day5_2("3,3,1108,-1,8,3,4,3,99", 10));
-    test(1ll, day5_2("3,3,1107,-1,8,3,4,3,99", 1));
-    test(0ll, day5_2("3,3,1107,-1,8,3,4,3,99", 10000));
-
-    test(1ll, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 1234));
-    test(0ll, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 0));
-    test(1ll, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 1234));
-    test(0ll, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0));
-    //ip_dump("3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99");
-    gogogo(day5_2(LOADSTR(5), 5), 13758663ll);
+        test<size_t>(30, day3_2(READ("R8,U5,L5,D3\nU7,R6,D4,L4")));
+        test<size_t>(610, day3_2(READ("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83")));
+        test<size_t>(410, day3_2(READ("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7")));
+        nononoD(day3_2(LOAD(3)));
 
 
-    test(42, day6(LOAD(6t)));
-    gogogo(day6(LOAD(6)));
+        test<bool>(true, d4_is_code_valid(111111));
+        test<bool>(false, d4_is_code_valid(223450));
+        test<bool>(false, d4_is_code_valid(123789));
+        gogogo(day4(193651, 649729));
 
-    test<size_t>(4, day6_2(LOAD(6t2)));
-    gogogo(day6_2(LOAD(6)));
-
-    test(43210, day7("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0"));
-    test(54321, day7("3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0"));
-    test(65210, day7("3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"));
-    gogogo(day7(LOADSTR(7)), 212460);
-
-    test(139629729ll, day7_2("3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"));
-    test(18216ll, day7_2("3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10"));
-    gogogo(day7_2(LOADSTR(7)), 21844737ll);
+        test<bool>(true, d4_is_code_valider(112233));
+        test<bool>(false, d4_is_code_valider(123444));
+        test<bool>(true, d4_is_code_valider(111122));
+        gogogo(day4_2(193651, 649729));
 
 
-    test(6, day8("000000112220001122", 3, 2));
-    gogogo(day8(LOADSTR(8)));
+        gogogo(day5(LOADSTR(5)), 7988899ll);
 
-    test(1, day8_2("0222112222120000", 2, 2));
-    gogogo(day8_2(LOADSTR(8)));
+        test(1ll, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 8));
+        test(0ll, day5_2("3,9,8,9,10,9,4,9,99,-1,8", 7));
+        test(1ll, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 3));
+        test(0ll, day5_2("3,9,7,9,10,9,4,9,99,-1,8", 10));
+        test(1ll, day5_2("3,3,1108,-1,8,3,4,3,99", 8));
+        test(0ll, day5_2("3,3,1108,-1,8,3,4,3,99", 10));
+        test(1ll, day5_2("3,3,1107,-1,8,3,4,3,99", 1));
+        test(0ll, day5_2("3,3,1107,-1,8,3,4,3,99", 10000));
 
-    const char* quine = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99";
-    test<string>(quine, ip_run_capture_output(quine));
-    test<size_t>(16, ip_run_capture_output("1102,34915192,34915192,7,4,7,99,0").size());
-    test<string>("1125899906842624", ip_run_capture_output("104, 1125899906842624, 99"));
-    //ip_dump(LOADSTR(9));
-    gogogo<string>(ip_run_capture_output(LOADSTR(9)), "2789104029");
-
-    gogogo<string>(ip_run_capture_output(LOADSTR(9), { 2 }));
-
-
-    test<string>("8@3,4", day10(LOAD(10t)));
-    test<string>("33@5,8", day10(LOAD(10t2)));
-    test<string>("35@1,2", day10(LOAD(10t3)));
-    nD(test<string>("41@6,3", day10(LOAD(10t4))));
-    nD(test<string>("210@11,13", day10(LOAD(10t5))));
-    nononoD(day10(LOAD(10)), string("340@28,29"));
+        test(1ll, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 1234));
+        test(0ll, day5_2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 0));
+        test(1ll, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 1234));
+        test(0ll, day5_2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0));
+        //ip_dump("3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99");
+        gogogo(day5_2(LOADSTR(5), 5), 13758663ll);
 
 
-    auto d10_2 = LOAD(10t_2);
-    test(801, day10_2(d10_2, { 8, 3 }, 1));
-    test(900, day10_2(d10_2, { 8, 3 }, 2));
-    test(901, day10_2(d10_2, { 8, 3 }, 3));
-    test(1000, day10_2(d10_2, { 8, 3 }, 4));
-    test(203, day10_2(d10_2, { 8, 3 }, 20));
-    test(800, day10_2(d10_2, { 8, 3 }, 31));
-    gogogo(day10_2(LOAD(10), { 28, 29 }, 200), 2628);
+        test(42, day6(LOAD(6t)));
+        gogogo(day6(LOAD(6)));
+
+        test<size_t>(4, day6_2(LOAD(6t2)));
+        gogogo(day6_2(LOAD(6)));
+
+        test(43210, day7("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0"));
+        test(54321, day7("3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0"));
+        test(65210, day7("3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"));
+        gogogo(day7(LOADSTR(7)), 212460);
+
+        test(139629729ll, day7_2("3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"));
+        test(18216ll, day7_2("3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10"));
+        gogogo(day7_2(LOADSTR(7)), 21844737ll);
 
 
-    // ip_dump(LOADSTR(11), { 0, 471 });
-    gogogo(day11(LOADSTR(11)));
-    gogogo(day11(LOADSTR(11), true));
+        test(6, day8("000000112220001122", 3, 2));
+        gogogo(day8(LOADSTR(8)));
+
+        test(1, day8_2("0222112222120000", 2, 2));
+        gogogo(day8_2(LOADSTR(8)));
+
+        const char* quine = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99";
+        test<string>(quine, ip_run_capture_output(quine));
+        test<size_t>(16, ip_run_capture_output("1102,34915192,34915192,7,4,7,99,0").size());
+        test<string>("1125899906842624", ip_run_capture_output("104, 1125899906842624, 99"));
+        //ip_dump(LOADSTR(9));
+        gogogo<string>(ip_run_capture_output(LOADSTR(9)), "2789104029");
+
+        gogogo<string>(ip_run_capture_output(LOADSTR(9), { 2 }));
 
 
-    test(179, day12({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }, 10));
-    test(1940, day12({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 100));
-    gogogo(day12({ {13,9,5}, {8,14,-2}, {-5,4,11}, {2,-6,1} }, 1000));
-
-    test(2772ll, day12_2b({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }));
-    test(4686774924ll, day12_2b({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }));
-    gogogo(day12_2b({ { 13,9,5 },{ 8,14,-2 },{ -5,4,11 },{ 2,-6,1 } }), 277068010964808ll);
-
-
-    gogogo(day13(LOADSTR(13)), 216);
-    nononoD(day13_2(LOADSTR(13)), 10025);
+        test<string>("8@3,4", day10(LOAD(10t)));
+        test<string>("33@5,8", day10(LOAD(10t2)));
+        test<string>("35@1,2", day10(LOAD(10t3)));
+        nD(test<string>("41@6,3", day10(LOAD(10t4))));
+        nD(test<string>("210@11,13", day10(LOAD(10t5))));
+        nononoD(day10(LOAD(10)), string("340@28,29"));
 
 
-    test(31, day14(LOAD(14t)));
-    test(165, day14(LOAD(14t2)));
-    test(2210736, day14(LOAD(14t3)));
-    nononoD(day14(LOAD(14)));
-
-    nest(460664, day14_2(LOAD(14t3)));
-    nonono(day14_2(LOAD(14)));
-
-
-    gogogo(day15(LOADSTR(15)));
-    gogogo(day15_2(LOADSTR(15)));
+        auto d10_2 = LOAD(10t_2);
+        test(801, day10_2(d10_2, { 8, 3 }, 1));
+        test(900, day10_2(d10_2, { 8, 3 }, 2));
+        test(901, day10_2(d10_2, { 8, 3 }, 3));
+        test(1000, day10_2(d10_2, { 8, 3 }, 4));
+        test(203, day10_2(d10_2, { 8, 3 }, 20));
+        test(800, day10_2(d10_2, { 8, 3 }, 31));
+        gogogo(day10_2(LOAD(10), { 28, 29 }, 200), 2628);
 
 
-    test<string>("48226158", day16("12345678", 1));
-    test<string>("34040438", day16("12345678", 2));
-    test<string>("03415518", day16("12345678", 3));
-    test<string>("01029498", day16("12345678", 4));
-    test<string>("24176176", day16("80871224585914546619083218645595", 100));
-    test<string>("73745418", day16("19617804207202209144916044189917", 100));
-    test<string>("52432133", day16("69317163492948606335995924319873", 100));
-    nononoD(day16(LOADSTR(16), 100));
-
-    // TODO: return to 16 pt2!
-    nest(string("24176176"), day16_2("03036732577212944063491565474664"));
-    nest(string("73745418"), day16_2("02935109699940807407585447034323"));
-    nest(string("53553731"), day16_2("03081770884921959731165446850517"));
-    nonono(day16_2(LOADSTR(16)));
+        // ip_dump(LOADSTR(11), { 0, 471 });
+        gogogo(day11(LOADSTR(11)));
+        gogogo(day11(LOADSTR(11), true));
 
 
-    test(76, d17_sum_alignments(LOAD(17t)));
-    gogogo(day17(LOADSTR(17)));
+        test(179, day12({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }, 10));
+        test(1940, day12({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }, 100));
+        gogogo(day12({ {13,9,5}, {8,14,-2}, {-5,4,11}, {2,-6,1} }, 1000));
 
-    gogogo(day17_2(LOADSTR(17)));
+        test(2772ll, day12_2b({ { -1,0,2 },{ 2,-10,-7 },{ 4,-8,8 },{ 3,5,-1 } }));
+        test(4686774924ll, day12_2b({ { -8,-10,0 },{ 5,5,10 },{ 2,-7,3 },{ 9,-8,-3 } }));
+        gogogo(day12_2b({ { 13,9,5 },{ 8,14,-2 },{ -5,4,11 },{ 2,-6,1 } }), 277068010964808ll);
 
+
+        gogogo(day13(LOADSTR(13)), 216);
+        nononoD(day13_2(LOADSTR(13)), 10025);
+
+
+        test(31, day14(LOAD(14t)));
+        test(165, day14(LOAD(14t2)));
+        test(2210736, day14(LOAD(14t3)));
+        nononoD(day14(LOAD(14)));
+
+        nest(460664, day14_2(LOAD(14t3)));
+        nonono(day14_2(LOAD(14)));
+
+
+        gogogo(day15(LOADSTR(15)));
+        gogogo(day15_2(LOADSTR(15)));
+
+
+        test<string>("48226158", day16("12345678", 1));
+        test<string>("34040438", day16("12345678", 2));
+        test<string>("03415518", day16("12345678", 3));
+        test<string>("01029498", day16("12345678", 4));
+        test<string>("24176176", day16("80871224585914546619083218645595", 100));
+        test<string>("73745418", day16("19617804207202209144916044189917", 100));
+        test<string>("52432133", day16("69317163492948606335995924319873", 100));
+        nononoD(day16(LOADSTR(16), 100));
+
+        // TODO: return to 16 pt2!
+        nest(string("84462026"), day16_2("03036732577212944063491565474664"));
+        nest(string("78725270"), day16_2("02935109699940807407585447034323"));
+        nest(string("53553731"), day16_2("03081770884921959731165446850517"));
+        nonono(day16_2(LOADSTR(16)));
+
+
+        test(76, d17_sum_alignments(LOAD(17t)));
+        gogogo(day17(LOADSTR(17)));
+
+        gogogo(day17_2(LOADSTR(17)));
+    }
+    else
+    {
+        gday = 18;
+    }
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();
