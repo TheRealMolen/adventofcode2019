@@ -123,6 +123,12 @@
     <Text Include="data\day10t5.txt">
       <Filter>Resource Files\01-10</Filter>
     </Text>
+    <Text Include="data\day18t2.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day18t.txt">
+      <Filter>Resource Files\01-10</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">

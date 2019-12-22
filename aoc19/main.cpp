@@ -2469,6 +2469,130 @@ int64_t day17_2(const string& program)
 
 
 // -------------------------------------------------------------------
+typedef pt2d<int16_t> d18_pt;
+
+struct d18_map2d
+{
+    size_t width;
+    size_t height;
+    vector<char> tiles;
+
+    d18_map2d(const stringlist& lines)
+    {
+        width = lines.front().size();
+        height = lines.size();
+        _ASSERT(width < 0x7fff && height < 0x7fff);
+
+        tiles.reserve(width * height);
+
+        for (const auto& line : lines)
+            copy(line.begin(), line.end(), back_inserter(tiles));
+    }
+
+    d18_pt find_item(char item) const
+    {
+        auto it = find(tiles.begin(), tiles.end(), item);
+        if (it == tiles.end())
+            return d18_pt(-1, -1);
+
+        auto index = distance(tiles.begin(), it);
+
+        return d18_pt((int16_t)(index % width), (int16_t)(index / width));
+    }
+
+    char get(size_t x, size_t y) const
+    {
+        return tiles[x + y*width];
+    }
+    char get(const d18_pt& p) const
+    {
+        return tiles[p.x + p.y*width];
+    }
+};
+ostream& operator<<(ostream& os, const d18_map2d& m)
+{
+    auto it = m.tiles.begin();
+    for (size_t y = 0; y < m.height; ++y, it += m.width)
+    {
+        os.write(&*it, m.width);
+        os << '\n';
+    }
+    return os;
+}
+
+struct d18_edge
+{
+    //d18_node bottom;
+    int distance;
+};
+
+struct d18_node
+{
+    enum ntype { invalid, root, key, lock };
+
+    ntype type;
+    char c;
+    d18_pt pos;
+    list<d18_edge> children;
+
+    d18_node() : type(invalid)  {/**/}
+    d18_node(const d18_pt& _pos, char _c) : c(_c), pos(_pos)
+    {
+        if (_c == '@')
+            type = root;
+        else if (_c >= 'a' && _c <= 'z')
+            type = key;
+        else if (_c >= 'A' && _c <= 'Z')
+            type = lock;
+        else
+            throw "wtf is that";
+    }
+};
+
+const vector<d18_pt> d18_dirs = { {0,-1}, {1,0}, {0,1}, {-1,0} };
+void d18_parse_edge(const d18_map2d& m, const d18_pt& start, const d18_pt& start_dir, d18_edge& out_edge)
+{
+
+}
+
+void d18_parse_tree_from_map(const stringlist& input, d18_node& out_root)
+{
+    d18_map2d m(input);
+
+    auto root_pos = m.find_item('@');
+    out_root = d18_node(root_pos, '@');
+
+    for (auto& dir : d18_dirs)
+    {
+        // is this path viable?
+        if (m.get(root_pos + dir) != '.')
+            continue;
+
+        d18_edge edge;
+        d18_parse_edge(m, root_pos, dir, edge);
+        out_root.children.push_back(edge);
+    }
+}
+
+int day18(const stringlist& input)
+{
+    //d18_node root;
+    //d18_parse_tree_from_map(input, root);
+
+    d18_map2d m(input);
+    map<char, d18_pt> items;
+    items['@'] = m.find_item('@');
+    for (char key = 'a'; key <= 'z'; ++key)
+    {
+        auto pt = m.find_item(key);
+        if (pt.x >= 0)
+            items.emplace(key, pt);
+    }
+    
+    return -1;
+}
+
+// -------------------------------------------------------------------
 
 
 
@@ -2660,6 +2784,8 @@ int main()
     {
         gday = 18;
     }
+
+    test(8, day18(LOAD(18t)));
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();
