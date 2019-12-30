@@ -2473,31 +2473,6 @@ int64_t day17_2(const string& program)
 typedef pt2d<int16_t> d18_pt;
 static const vector<d18_pt> d18_dirs = { {0,-1},{1,0},{0,1},{-1,0} };
 
-template <typename ValTyp, typename PrioTyp>
-struct dijk_node
-{
-    ValTyp p;
-    PrioTyp distance;
-
-    dijk_node(const ValTyp& _p, const PrioTyp _dist) : p(_p), distance(_dist) {/**/}
-};
-
-template <typename T>
-struct dijk_node_prio_cmp
-{
-    bool operator()(const T* lhs, const T* rhs) const
-    {
-        return lhs->distance > rhs->distance;
-    }
-    bool operator()(const T& lhs, const T& rhs) const
-    {
-        return lhs.distance > rhs.distance;
-    }
-};
-
-typedef dijk_node<d18_pt, uint16_t> d18_dijk;
-typedef dijk_node_prio_cmp<d18_dijk> d18_dijk_cmp;
-
 struct d18_map2d
 {
     size_t width;
@@ -2536,6 +2511,15 @@ struct d18_map2d
         return tiles[p.x + p.y*width];
     }
 
+    size_t calc_ix(const d18_pt& p) const
+    {
+        return p.x + p.y * width;
+    }
+    d18_pt pt_from_ix(size_t ix) const
+    {
+        return d18_pt((int16_t)(ix % width), (int16_t)(ix / width));
+    }
+
     int try_path(const d18_pt& from, const d18_pt& to, const vector<char>& keys, vector<char>& out_new_keys) const;
 };
 ostream& operator<<(ostream& os, const d18_map2d& m)
@@ -2557,39 +2541,42 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
     vector<uint16_t> distances(tiles.size(), 0xffffu);
 
     // start point has distance of zero
-    distances[from.x + from.y*width] = 0;
+    distances[calc_ix(from)] = 0;
 
-    priority_queue<d18_dijk, vector<d18_dijk>, d18_dijk_cmp> unvisited;
-    unvisited.emplace(from, 0);
+    vector<size_t> unvisited_by_ix;
+    unvisited_by_ix.reserve(tiles.size());
+    unvisited_by_ix.push_back(calc_ix(from));
 
     bool reached = false;
-    while (!unvisited.empty())
+    while (!unvisited_by_ix.empty())
     {
-        auto curr = unvisited.top();
-        unvisited.pop();
+        // find unvisited with the lowest distance
+        auto it_curr_ix = min_element(unvisited_by_ix.begin(), unvisited_by_ix.end(),
+            [&](auto ix_a, auto ix_b) { return distances[ix_a] < distances[ix_b]; });
+        auto curr_ix = *it_curr_ix;
+        unvisited_by_ix.erase(it_curr_ix);
 
-        if (curr.p == to)
+        auto curr_p = pt_from_ix(curr_ix);
+        if (curr_p == to)
         {
             reached = true;
             break;
         }
 
-        size_t index = curr.p.x + curr.p.y*width;
-
         // there are dupes in the prio queue
-        if (visited[index])
+        if (visited[curr_ix])
             continue;
-        visited[index] = true;
+        visited[curr_ix] = true;
 
-        auto curr_dist = distances[index];
+        auto curr_dist = distances[curr_ix];
 
         uint16_t new_ndist = curr_dist + 1;
 
         // spin through unvisited neighbours and update their distances if need be
         for (auto& dir : d18_dirs)
         {
-            auto n = curr.p + dir;
-            size_t nindex = n.x + n.y*width;
+            auto n = curr_p + dir;
+            size_t nindex = calc_ix(n);
             if (visited[nindex])
                 continue;
 
@@ -2608,8 +2595,7 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
             if (new_ndist < distances[nindex])
             {
                 distances[nindex] = new_ndist;
-                // update it in the prio queue
-                unvisited.emplace(n, new_ndist);
+                unvisited_by_ix.push_back(nindex);
             }
         }
     }
@@ -2620,13 +2606,13 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
     // follow the path to find if we picked up any new keys along the way
     out_new_keys.clear();
     auto curr = to;
-    auto curr_d = distances[curr.x + curr.y*width];
+    auto curr_d = distances[calc_ix(curr)];
     vector<d18_pt> path;
     path.reserve(curr_d);
     do {
         path.push_back(curr);
 
-        auto curr_ix = curr.x + curr.y*width;
+        auto curr_ix = calc_ix(curr);
 
         auto tile = tiles[curr_ix];
         if (tile >= 'a' && tile <= 'z')
@@ -2638,7 +2624,7 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
         for (auto& dir : d18_dirs)
         {
             auto prev = curr + dir;
-            auto prev_ix = prev.x + prev.y*width;
+            auto prev_ix = calc_ix(prev);
             if (distances[prev_ix] == curr_d)
             {
                 curr = prev;
@@ -2654,9 +2640,27 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
     return distances[to.x + to.y*width];
 }
 
-int d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const vector<char> prev_keys, const d18_pt& curr_pos)
+struct d18_step
 {
-    int shortest = -1;
+    char target;
+    d18_pt pos;
+    int cost;
+    vector<char> new_keys;
+};
+
+bool d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const d18_pt& curr_pos, int& out_shortest, const vector<char> prev_keys = {}, int curr_cost = 0, int curr_shortest = -1)
+{
+    if (prev_keys.size() < 6 && !prev_keys.empty())
+    {
+        cout << "... trying paths starting: ";
+        for (auto key : prev_keys)
+            cout << key << ", ";
+        cout << endl;
+    }
+
+    // step 1: find all valid next steps, sorted by distance
+    vector<d18_step> next_steps;
+    next_steps.reserve(items.size());
     for (auto& item : items)
     {
         if (item.first == '@')
@@ -2666,33 +2670,55 @@ int d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const v
         if (find(prev_keys.begin(), prev_keys.end(), item.first) != prev_keys.end())
             continue;
 
-        if (prev_keys.empty())
-        {
-            cout << "...trying path starting with " << item.first << endl;
-        }
-
         vector<char> new_keys;
         int dist = m.try_path(curr_pos, item.second, prev_keys, new_keys);
         if (dist > 0)
         {
-            int remain_dist = 0;
-            if (items.size() > prev_keys.size() + 1 + 1)
-            {
-                vector<char> keys(prev_keys);
-                copy(new_keys.begin(), new_keys.end(), back_inserter(keys));
-                remain_dist = d18_recurse_walk(m, items, keys, item.second);
-            }
-
-            if (remain_dist < 0)
-                continue;
-
-            int full_dist = dist + remain_dist;
-            if (shortest < 0 || full_dist < shortest)
-                shortest = full_dist;
+            if (curr_shortest < 0 || (dist + curr_cost) < curr_shortest)
+                next_steps.push_back({ item.first, item.second, dist, move(new_keys) });
         }
     }
 
-    return shortest;
+    // if we're at the final key, we don't need to do any more
+    if (items.size() == prev_keys.size() + 1 + 1)
+    {
+        // have we hit a dead end?
+        if (next_steps.empty())
+            return false;
+
+        _ASSERT(next_steps.size() == 1);
+        out_shortest = next_steps.front().cost;
+        return true;
+    }
+
+    sort(next_steps.begin(), next_steps.end(), [](auto& a, auto& b) { return a.cost < b.cost; });
+
+    // step 2: look for the rest of the path, starting with the nearest next step
+    bool found_valid_path = false;
+    int shortest_total = curr_shortest;
+    vector<char> keys(prev_keys);
+    keys.reserve(items.size());
+    for (auto& step : next_steps)
+    {
+        keys.erase(keys.begin() + prev_keys.size(), keys.end());
+
+        copy_if(step.new_keys.begin(), step.new_keys.end(), back_inserter(keys), 
+            [&](auto key) { return find(prev_keys.begin(), prev_keys.end(), key) == prev_keys.end(); });
+
+        int remain_dist = -1;
+        if (!d18_recurse_walk(m, items, step.pos, remain_dist, keys, curr_cost + step.cost, shortest_total))
+            continue;
+
+        int full_dist = curr_cost + step.cost + remain_dist;
+        if (!found_valid_path || full_dist < shortest_total)
+        {
+            shortest_total = full_dist;
+            out_shortest = step.cost + remain_dist;
+            found_valid_path = true;
+        }
+    }
+
+    return found_valid_path;
 }
 
 int day18(const stringlist& input)
@@ -2709,8 +2735,14 @@ int day18(const stringlist& input)
     }
     items['@'] = m.find_item('@');
 
+    // NOPE this is super slow
+    //  --> build graph of path from each key to each other key, along with dist & the required keys
+    //  --> dijkstra that!
+
     auto start = items['@'];
-    return d18_recurse_walk(m, items, {}, start);
+    int dist = -1;
+    d18_recurse_walk(m, items, start, dist);
+    return dist;
 }
 
 // -------------------------------------------------------------------
@@ -2729,7 +2761,7 @@ int main()
     return 1;
 #endif
 
-    bool skiptotheend = false;
+    bool skiptotheend = true;
 #ifdef _DEBUG
     skiptotheend = true;
 #endif
@@ -2906,10 +2938,10 @@ int main()
         gday = 18;
     }
 
-    test(136, day18(LOAD(18t4)));
     test(8, day18(LOAD(18t)));
     test(86, day18(LOAD(18t2)));
     test(132, day18(LOAD(18t3)));
+    test(136, day18(LOAD(18t4)));
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();
