@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <queue>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -2470,6 +2471,32 @@ int64_t day17_2(const string& program)
 
 // -------------------------------------------------------------------
 typedef pt2d<int16_t> d18_pt;
+static const vector<d18_pt> d18_dirs = { {0,-1},{1,0},{0,1},{-1,0} };
+
+template <typename ValTyp, typename PrioTyp>
+struct dijk_node
+{
+    ValTyp p;
+    PrioTyp distance;
+
+    dijk_node(const ValTyp& _p, const PrioTyp _dist) : p(_p), distance(_dist) {/**/}
+};
+
+template <typename T>
+struct dijk_node_prio_cmp
+{
+    bool operator()(const T* lhs, const T* rhs) const
+    {
+        return lhs->distance > rhs->distance;
+    }
+    bool operator()(const T& lhs, const T& rhs) const
+    {
+        return lhs.distance > rhs.distance;
+    }
+};
+
+typedef dijk_node<d18_pt, uint16_t> d18_dijk;
+typedef dijk_node_prio_cmp<d18_dijk> d18_dijk_cmp;
 
 struct d18_map2d
 {
@@ -2508,6 +2535,8 @@ struct d18_map2d
     {
         return tiles[p.x + p.y*width];
     }
+
+    int try_path(const d18_pt& from, const d18_pt& to, const vector<char>& keys, vector<char>& out_new_keys) const;
 };
 ostream& operator<<(ostream& os, const d18_map2d& m)
 {
@@ -2520,76 +2549,168 @@ ostream& operator<<(ostream& os, const d18_map2d& m)
     return os;
 }
 
-struct d18_edge
+
+int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>& keys, vector<char>& out_new_keys) const
 {
-    //d18_node bottom;
-    int distance;
-};
+    // indexed same as tiles
+    vector<bool> visited(tiles.size(), false);
+    vector<uint16_t> distances(tiles.size(), 0xffffu);
 
-struct d18_node
-{
-    enum ntype { invalid, root, key, lock };
+    // start point has distance of zero
+    distances[from.x + from.y*width] = 0;
 
-    ntype type;
-    char c;
-    d18_pt pos;
-    list<d18_edge> children;
+    priority_queue<d18_dijk, vector<d18_dijk>, d18_dijk_cmp> unvisited;
+    unvisited.emplace(from, 0);
 
-    d18_node() : type(invalid)  {/**/}
-    d18_node(const d18_pt& _pos, char _c) : c(_c), pos(_pos)
+    bool reached = false;
+    while (!unvisited.empty())
     {
-        if (_c == '@')
-            type = root;
-        else if (_c >= 'a' && _c <= 'z')
-            type = key;
-        else if (_c >= 'A' && _c <= 'Z')
-            type = lock;
-        else
-            throw "wtf is that";
+        auto curr = unvisited.top();
+        unvisited.pop();
+
+        if (curr.p == to)
+        {
+            reached = true;
+            break;
+        }
+
+        size_t index = curr.p.x + curr.p.y*width;
+
+        // there are dupes in the prio queue
+        if (visited[index])
+            continue;
+        visited[index] = true;
+
+        auto curr_dist = distances[index];
+
+        uint16_t new_ndist = curr_dist + 1;
+
+        // spin through unvisited neighbours and update their distances if need be
+        for (auto& dir : d18_dirs)
+        {
+            auto n = curr.p + dir;
+            size_t nindex = n.x + n.y*width;
+            if (visited[nindex])
+                continue;
+
+            auto ntile = tiles[nindex];
+            if (ntile == '#')
+                continue;
+
+            if (ntile >= 'A' && ntile <= 'Z')
+            {
+                char key = ntile + ('a' - 'A');
+                if (find(keys.begin(), keys.end(), key) == keys.end())
+                    // *rattle* the door is locked
+                    continue;
+            }
+
+            if (new_ndist < distances[nindex])
+            {
+                distances[nindex] = new_ndist;
+                // update it in the prio queue
+                unvisited.emplace(n, new_ndist);
+            }
+        }
     }
-};
 
-const vector<d18_pt> d18_dirs = { {0,-1}, {1,0}, {0,1}, {-1,0} };
-void d18_parse_edge(const d18_map2d& m, const d18_pt& start, const d18_pt& start_dir, d18_edge& out_edge)
-{
+    if (!reached)
+        return -1;
 
+    // follow the path to find if we picked up any new keys along the way
+    out_new_keys.clear();
+    auto curr = to;
+    auto curr_d = distances[curr.x + curr.y*width];
+    vector<d18_pt> path;
+    path.reserve(curr_d);
+    do {
+        path.push_back(curr);
+
+        auto curr_ix = curr.x + curr.y*width;
+
+        auto tile = tiles[curr_ix];
+        if (tile >= 'a' && tile <= 'z')
+            out_new_keys.push_back(tile);
+
+        // look for neighbour with next-lowest distance
+        curr_d--;
+        bool found = false;
+        for (auto& dir : d18_dirs)
+        {
+            auto prev = curr + dir;
+            auto prev_ix = prev.x + prev.y*width;
+            if (distances[prev_ix] == curr_d)
+            {
+                curr = prev;
+                found = true;
+                break;
+            }
+        }
+        _ASSERT(found);
+    } while (curr != from);
+
+    reverse(path.begin(), path.end());
+
+    return distances[to.x + to.y*width];
 }
 
-void d18_parse_tree_from_map(const stringlist& input, d18_node& out_root)
+int d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const vector<char> prev_keys, const d18_pt& curr_pos)
 {
-    d18_map2d m(input);
-
-    auto root_pos = m.find_item('@');
-    out_root = d18_node(root_pos, '@');
-
-    for (auto& dir : d18_dirs)
+    int shortest = -1;
+    for (auto& item : items)
     {
-        // is this path viable?
-        if (m.get(root_pos + dir) != '.')
+        if (item.first == '@')
             continue;
 
-        d18_edge edge;
-        d18_parse_edge(m, root_pos, dir, edge);
-        out_root.children.push_back(edge);
+        // have we already found this key?
+        if (find(prev_keys.begin(), prev_keys.end(), item.first) != prev_keys.end())
+            continue;
+
+        if (prev_keys.empty())
+        {
+            cout << "...trying path starting with " << item.first << endl;
+        }
+
+        vector<char> new_keys;
+        int dist = m.try_path(curr_pos, item.second, prev_keys, new_keys);
+        if (dist > 0)
+        {
+            int remain_dist = 0;
+            if (items.size() > prev_keys.size() + 1 + 1)
+            {
+                vector<char> keys(prev_keys);
+                copy(new_keys.begin(), new_keys.end(), back_inserter(keys));
+                remain_dist = d18_recurse_walk(m, items, keys, item.second);
+            }
+
+            if (remain_dist < 0)
+                continue;
+
+            int full_dist = dist + remain_dist;
+            if (shortest < 0 || full_dist < shortest)
+                shortest = full_dist;
+        }
     }
+
+    return shortest;
 }
 
 int day18(const stringlist& input)
 {
-    //d18_node root;
-    //d18_parse_tree_from_map(input, root);
-
     d18_map2d m(input);
+
+    // find all the interesting places
     map<char, d18_pt> items;
-    items['@'] = m.find_item('@');
     for (char key = 'a'; key <= 'z'; ++key)
     {
         auto pt = m.find_item(key);
         if (pt.x >= 0)
             items.emplace(key, pt);
     }
-    
-    return -1;
+    items['@'] = m.find_item('@');
+
+    auto start = items['@'];
+    return d18_recurse_walk(m, items, {}, start);
 }
 
 // -------------------------------------------------------------------
@@ -2785,7 +2906,10 @@ int main()
         gday = 18;
     }
 
+    test(136, day18(LOAD(18t4)));
     test(8, day18(LOAD(18t)));
+    test(86, day18(LOAD(18t2)));
+    test(132, day18(LOAD(18t3)));
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();

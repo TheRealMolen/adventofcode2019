@@ -127,7 +127,13 @@
       <Filter>Resource Files</Filter>
     </Text>
     <Text Include="data\day18t.txt">
-      <Filter>Resource Files\01-10</Filter>
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day18t3.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="data\day18t4.txt">
+      <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>
