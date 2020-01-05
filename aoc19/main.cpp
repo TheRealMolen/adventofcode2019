@@ -2599,11 +2599,7 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, uint32_t* pout_key
     uint32_t doors = 0;
     auto curr = to;
     auto curr_d = distances[calc_ix(curr)];
-    //vector<d18_pt> path;
-    //path.reserve(curr_d);
     do {
-        //path.push_back(curr);
-
         auto curr_ix = calc_ix(curr);
 
         auto tile = tiles[curr_ix];
@@ -2629,93 +2625,10 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, uint32_t* pout_key
         _ASSERT(found);
     } while (curr != from);
 
-    //reverse(path.begin(), path.end());
     if (pout_keys_needed)
         *pout_keys_needed = doors;
     return distances[calc_ix(to)];
 }
-
-struct d18_step
-{
-    char target;
-    d18_pt pos;
-    int cost;
-    vector<char> new_keys;
-};
-/*
-bool d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const d18_pt& curr_pos, int& out_shortest, const vector<char> prev_keys = {}, int curr_cost = 0, int curr_shortest = -1)
-{
-    if (prev_keys.size() < 6 && !prev_keys.empty())
-    {
-        cout << "... trying paths starting: ";
-        for (auto key : prev_keys)
-            cout << key << ", ";
-        cout << endl;
-    }
-
-    // step 1: find all valid next steps, sorted by distance
-    vector<d18_step> next_steps;
-    next_steps.reserve(items.size());
-    for (auto& item : items)
-    {
-        if (item.first == '@')
-            continue;
-
-        // have we already found this key?
-        if (find(prev_keys.begin(), prev_keys.end(), item.first) != prev_keys.end())
-            continue;
-
-        vector<char> new_keys;
-        int dist = m.try_path(curr_pos, item.second, prev_keys, new_keys);
-        if (dist > 0)
-        {
-            if (curr_shortest < 0 || (dist + curr_cost) < curr_shortest)
-                next_steps.push_back({ item.first, item.second, dist, move(new_keys) });
-        }
-    }
-
-    // if we're at the final key, we don't need to do any more
-    if (items.size() == prev_keys.size() + 1 + 1)
-    {
-        // have we hit a dead end?
-        if (next_steps.empty())
-            return false;
-
-        _ASSERT(next_steps.size() == 1);
-        out_shortest = next_steps.front().cost;
-        return true;
-    }
-
-    sort(next_steps.begin(), next_steps.end(), [](auto& a, auto& b) { return a.cost < b.cost; });
-
-    // step 2: look for the rest of the path, starting with the nearest next step
-    bool found_valid_path = false;
-    int shortest_total = curr_shortest;
-    vector<char> keys(prev_keys);
-    keys.reserve(items.size());
-    for (auto& step : next_steps)
-    {
-        keys.erase(keys.begin() + prev_keys.size(), keys.end());
-
-        copy_if(step.new_keys.begin(), step.new_keys.end(), back_inserter(keys), 
-            [&](auto key) { return find(prev_keys.begin(), prev_keys.end(), key) == prev_keys.end(); });
-
-        int remain_dist = -1;
-        if (!d18_recurse_walk(m, items, step.pos, remain_dist, keys, curr_cost + step.cost, shortest_total))
-            continue;
-
-        int full_dist = curr_cost + step.cost + remain_dist;
-        if (!found_valid_path || full_dist < shortest_total)
-        {
-            shortest_total = full_dist;
-            out_shortest = step.cost + remain_dist;
-            found_valid_path = true;
-        }
-    }
-
-    return found_valid_path;
-}
-*/
 
 struct d18_edge
 {
@@ -2723,88 +2636,6 @@ struct d18_edge
     uint16_t cost;
     uint32_t keys_needed;   // bit0 is 'a', bit1 is 'b', ...
 };
-
-void d18_walk_all(
-    const map<char, vector<const d18_edge*>>& nodes,
-    vector<char>& path,
-    uint32_t prev_cost,
-    uint32_t prev_keys,
-    vector<char>& inout_best_path,
-    uint32_t& inout_best_path_cost)
-{
-    // NOTE: this is depth-first, and suuuuper slow :(
-    //       need to try dijkstra....
-    char curr = path.back();
-
-    for (const auto& edge : nodes.at(curr))
-    {
-        char next = edge->ends[0] != curr ? edge->ends[0] : edge->ends[1];
-        _ASSERT(next >= 'a' && next <= 'z');
-        uint32_t next_bit = 1 << (next - 'a');
-        if (prev_keys & next_bit)
-            continue;
-
-        // is this path unlocked?
-        if ((edge->keys_needed & ~prev_keys) != 0)
-            continue;
-
-        // seems legit; let's try it!
-        uint32_t cost = prev_cost + edge->cost;
-        if (cost >= inout_best_path_cost)
-            // already too expensive!
-            continue;
-
-        path.push_back(next);
-
-        // are we at the end?
-        if (path.size() == nodes.size())
-        {
-            // if we're here, this is the new best path!
-            inout_best_path.assign(path.begin(), path.end());
-            inout_best_path_cost = cost;
-        }
-        else
-        {
-            // nope - keep digging!
-            uint32_t keys = prev_keys;
-            keys |= next_bit;
-            d18_walk_all(nodes, path, cost, keys, inout_best_path, inout_best_path_cost);
-        }
-
-        path.pop_back();
-    }
-}
-
-struct d18_bfs_visited
-{
-    char node;
-    char parent;
-    uint16_t cost;
-    uint32_t keys;
-};
-
-void d18_find_shortest_route(
-    const map<char, vector<const d18_edge*>>& nodes,
-    vector<char>& inout_best_path,
-    uint32_t& inout_best_path_cost)
-{
-/*    set<d18_bfs_visited> visited;
-    visited.emplace(d18_bfs_visited{ '@', '-', 0, 0 });
-
-    queue<d18_bfs_visited> to_visit;
-    while (!to_visit.empty())
-    {
-        auto curr = to_visit.front();
-        to_visit.pop();
-
-
-    }*/
-
-    nodes;
-    inout_best_path;
-    inout_best_path_cost;
-}
-
 
 struct d18_blop
 {
@@ -2982,24 +2813,6 @@ int day18(const stringlist& input)
     }
 
     return (int)d18_dijk_path(nodes);
-    /*
-    // now ... try them all!
-    vector<char> best_path;
-    uint32_t best_path_len = ~0u;
-
-    vector<char> path;
-    path.reserve(items.size());
-    path.push_back('@');
-    //d18_walk_all(nodes, path, 0, 0, best_path, best_path_len);
-    cout << "best path: ";
-    for (char n : best_path)
-    {
-        if (n != '@')
-            cout << ", ";
-        cout << n;
-    }
-    cout << endl;
-    return (int)best_path_len;*/
 }
 
 // -------------------------------------------------------------------
@@ -3018,7 +2831,7 @@ int main()
     return 1;
 #endif
 
-    bool skiptotheend = true;
+    bool skiptotheend = false;
 #ifdef _DEBUG
     skiptotheend = true;
 #endif
