@@ -118,6 +118,22 @@ public:
 
         return lst;
     }
+
+    static stringlist fromcsv(const string& str)
+    {
+        stringlist lst;
+
+        size_t start = 0;
+        size_t sep;
+        do {
+            // TODO: FIXME: quotes...!
+            sep = str.find(',', start);
+            lst.push_back(move(str.substr(start, sep != string::npos ? sep - start : sep)));
+            start = sep + 1;
+        } while (sep != string::npos);
+
+        return lst;
+    }
 };
 
 inline string stringfromfile(const string& fname)

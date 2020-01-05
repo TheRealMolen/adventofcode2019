@@ -2520,7 +2520,7 @@ struct d18_map2d
         return d18_pt((int16_t)(ix % width), (int16_t)(ix / width));
     }
 
-    int try_path(const d18_pt& from, const d18_pt& to, const vector<char>& keys, vector<char>& out_new_keys) const;
+    int try_path(const d18_pt& from, const d18_pt& to, uint32_t* pout_keys_needed) const;
 };
 ostream& operator<<(ostream& os, const d18_map2d& m)
 {
@@ -2534,7 +2534,7 @@ ostream& operator<<(ostream& os, const d18_map2d& m)
 }
 
 
-int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>& keys, vector<char>& out_new_keys) const
+int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, uint32_t* pout_keys_needed = NULL) const
 {
     // indexed same as tiles
     vector<bool> visited(tiles.size(), false);
@@ -2563,7 +2563,7 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
             break;
         }
 
-        // there are dupes in the prio queue
+        // there may be dupes in the unvisited list
         if (visited[curr_ix])
             continue;
         visited[curr_ix] = true;
@@ -2584,14 +2584,6 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
             if (ntile == '#')
                 continue;
 
-            if (ntile >= 'A' && ntile <= 'Z')
-            {
-                char key = ntile + ('a' - 'A');
-                if (find(keys.begin(), keys.end(), key) == keys.end())
-                    // *rattle* the door is locked
-                    continue;
-            }
-
             if (new_ndist < distances[nindex])
             {
                 distances[nindex] = new_ndist;
@@ -2603,20 +2595,22 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
     if (!reached)
         return -1;
 
-    // follow the path to find if we picked up any new keys along the way
-    out_new_keys.clear();
+    // follow the path to find any doors we encountered
+    uint32_t doors = 0;
     auto curr = to;
     auto curr_d = distances[calc_ix(curr)];
-    vector<d18_pt> path;
-    path.reserve(curr_d);
+    //vector<d18_pt> path;
+    //path.reserve(curr_d);
     do {
-        path.push_back(curr);
+        //path.push_back(curr);
 
         auto curr_ix = calc_ix(curr);
 
         auto tile = tiles[curr_ix];
-        if (tile >= 'a' && tile <= 'z')
-            out_new_keys.push_back(tile);
+        if (tile >= 'A' && tile <= 'Z')
+        {
+            doors |= (1 << (tile - 'A'));
+        }
 
         // look for neighbour with next-lowest distance
         curr_d--;
@@ -2635,9 +2629,10 @@ int d18_map2d::try_path(const d18_pt& from, const d18_pt& to, const vector<char>
         _ASSERT(found);
     } while (curr != from);
 
-    reverse(path.begin(), path.end());
-
-    return distances[to.x + to.y*width];
+    //reverse(path.begin(), path.end());
+    if (pout_keys_needed)
+        *pout_keys_needed = doors;
+    return distances[calc_ix(to)];
 }
 
 struct d18_step
@@ -2647,7 +2642,7 @@ struct d18_step
     int cost;
     vector<char> new_keys;
 };
-
+/*
 bool d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const d18_pt& curr_pos, int& out_shortest, const vector<char> prev_keys = {}, int curr_cost = 0, int curr_shortest = -1)
 {
     if (prev_keys.size() < 6 && !prev_keys.empty())
@@ -2720,6 +2715,216 @@ bool d18_recurse_walk(const d18_map2d& m, const map<char, d18_pt>& items, const 
 
     return found_valid_path;
 }
+*/
+
+struct d18_edge
+{
+    char ends[2];
+    uint16_t cost;
+    uint32_t keys_needed;   // bit0 is 'a', bit1 is 'b', ...
+};
+
+void d18_walk_all(
+    const map<char, vector<const d18_edge*>>& nodes,
+    vector<char>& path,
+    uint32_t prev_cost,
+    uint32_t prev_keys,
+    vector<char>& inout_best_path,
+    uint32_t& inout_best_path_cost)
+{
+    // NOTE: this is depth-first, and suuuuper slow :(
+    //       need to try dijkstra....
+    char curr = path.back();
+
+    for (const auto& edge : nodes.at(curr))
+    {
+        char next = edge->ends[0] != curr ? edge->ends[0] : edge->ends[1];
+        _ASSERT(next >= 'a' && next <= 'z');
+        uint32_t next_bit = 1 << (next - 'a');
+        if (prev_keys & next_bit)
+            continue;
+
+        // is this path unlocked?
+        if ((edge->keys_needed & ~prev_keys) != 0)
+            continue;
+
+        // seems legit; let's try it!
+        uint32_t cost = prev_cost + edge->cost;
+        if (cost >= inout_best_path_cost)
+            // already too expensive!
+            continue;
+
+        path.push_back(next);
+
+        // are we at the end?
+        if (path.size() == nodes.size())
+        {
+            // if we're here, this is the new best path!
+            inout_best_path.assign(path.begin(), path.end());
+            inout_best_path_cost = cost;
+        }
+        else
+        {
+            // nope - keep digging!
+            uint32_t keys = prev_keys;
+            keys |= next_bit;
+            d18_walk_all(nodes, path, cost, keys, inout_best_path, inout_best_path_cost);
+        }
+
+        path.pop_back();
+    }
+}
+
+struct d18_bfs_visited
+{
+    char node;
+    char parent;
+    uint16_t cost;
+    uint32_t keys;
+};
+
+void d18_find_shortest_route(
+    const map<char, vector<const d18_edge*>>& nodes,
+    vector<char>& inout_best_path,
+    uint32_t& inout_best_path_cost)
+{
+/*    set<d18_bfs_visited> visited;
+    visited.emplace(d18_bfs_visited{ '@', '-', 0, 0 });
+
+    queue<d18_bfs_visited> to_visit;
+    while (!to_visit.empty())
+    {
+        auto curr = to_visit.front();
+        to_visit.pop();
+
+
+    }*/
+
+    nodes;
+    inout_best_path;
+    inout_best_path_cost;
+}
+
+
+struct d18_blop
+{
+    char key;
+    bool visited;
+    const d18_blop* parent;
+    uint32_t cost;
+    uint32_t keys_owned;
+    vector<pair<char, uint16_t>> possible;
+
+    d18_blop(char k, const d18_blop* p, uint32_t c, uint32_t ko, const map<char, vector<const d18_edge*>>& nodes)
+        : key(k), visited(false), parent(p), cost(c), keys_owned(ko)
+    {
+        for (const auto& e : nodes.at(key))
+        {
+            if (e->keys_needed & ~ko)
+                continue;
+
+            char n = e->ends[0] != k ? e->ends[0] : e->ends[1];
+
+            // omit visited keys
+            uint32_t nbit = 1 << (n - 'a');
+            if (ko & nbit)
+                continue;
+
+            possible.push_back(make_pair(n, e->cost));
+        }
+    }
+};
+
+ostream& operator<<(ostream& os, const d18_blop& b)
+{
+    os << " .. from " << b.key << ": [ ";
+    for (auto& next : b.possible)
+    {
+        if (next != b.possible.front())
+            os << ", ";
+        os << next.first << " (" << next.second << ")";
+    }
+    os << " ]";
+    return os;
+}
+
+struct d18_blop_prio_cmp
+{
+    bool operator()(const d18_blop* lhs, const d18_blop* rhs) const
+    {
+        return lhs->cost > rhs->cost;
+    }
+    bool operator()(const d18_blop& lhs, const d18_blop& rhs) const
+    {
+        return lhs.cost > rhs.cost;
+    }
+};
+
+uint32_t d18_dijk_path(const map<char, vector<const d18_edge*>>& nodes)
+{
+    map<pair<char, uint32_t>, d18_blop> blops;
+    auto newnode = blops.try_emplace(make_pair('@', 0), '@', nullptr, 0, 0, nodes);
+
+    priority_queue<d18_blop*, vector<d18_blop*>, d18_blop_prio_cmp> q;
+    q.push(&newnode.first->second);
+
+    size_t desired_len = nodes.size() - 1;
+    uint32_t desired_bits = (1 << desired_len) - 1;
+
+    while (!q.empty())
+    {
+        d18_blop* pcurr = q.top();
+        q.pop();
+        if (pcurr->visited)
+            continue;
+
+        if (pcurr->keys_owned == desired_bits)
+        {
+            cout << " ## found shortest path: ";
+            for (const d18_blop* pb = pcurr; pb; pb = pb->parent)
+            {
+                if (pb != pcurr) cout << " <- ";
+                cout << pb->key;
+            }
+            cout << endl;
+
+            return pcurr->cost;
+        }
+
+        pcurr->visited = true;
+
+        for (auto& n : pcurr->possible)
+        {
+            uint32_t nbit = 1 << (n.first - 'a');
+
+            uint32_t new_cost = pcurr->cost + n.second;
+            uint32_t new_ko = pcurr->keys_owned | nbit;
+
+            auto it_created = blops.try_emplace(make_pair(n.first, new_ko), n.first, pcurr, new_cost, new_ko, nodes);
+            auto itnode = it_created.first;
+            if (it_created.second)
+            {
+                q.push(&itnode->second);
+            }
+            else if (new_cost < itnode->second.cost)
+            {
+                _ASSERT(new_ko == itnode->second.keys_owned);    // this must always match the one in the key
+
+                // update the cost of the node and re-add it to the prio q
+                d18_blop& blop = itnode->second;
+                blop.cost = new_cost;
+                blop.parent = pcurr;
+
+                // hacky way to update the prio queue o_O  (from https://stackoverflow.com/a/5811888)
+                make_heap(const_cast<d18_blop**>(&q.top()),
+                          const_cast<d18_blop**>(&q.top()) + q.size(),
+                          d18_blop_prio_cmp());
+            }
+        }
+    }
+
+    return 0;
+}
 
 int day18(const stringlist& input)
 {
@@ -2735,14 +2940,66 @@ int day18(const stringlist& input)
     }
     items['@'] = m.find_item('@');
 
-    // NOPE this is super slow
-    //  --> build graph of path from each key to each other key, along with dist & the required keys
-    //  --> dijkstra that!
+    // now build a graph using the keys as node
+    vector<d18_edge> edges;
+    edges.reserve(items.size() * (items.size() - 1));
+    for (auto ita = items.begin(); ita != items.end(); ++ita)
+    {
+        auto itb = ita;
+        ++itb;
+        for (; itb != items.end(); ++itb)
+        {
+            d18_edge e;
+            e.ends[0] = ita->first;
+            e.ends[1] = itb->first;
 
-    auto start = items['@'];
-    int dist = -1;
-    d18_recurse_walk(m, items, start, dist);
-    return dist;
+            int dist = m.try_path(ita->second, itb->second, &e.keys_needed);
+            _ASSERT(dist > 0);
+            e.cost = (uint16_t)dist;
+
+            edges.push_back(move(e));
+        }
+    }
+
+    // and a quick lookup into that
+    map<char, vector<const d18_edge*>> nodes;
+    for (auto it_e = edges.begin(); it_e != edges.end(); ++it_e)
+    {
+        d18_edge* pe = &*it_e;
+
+        for (int end = 0; end < 2; ++end)
+        {
+            // don't add anything returning to the start point
+            if (end == 1 && pe->ends[0] == '@')
+                continue;
+
+            auto it = nodes.find(pe->ends[end]);
+            if (it == nodes.end())
+                nodes.emplace(pe->ends[end], vector<const d18_edge*>{ pe });
+            else
+                it->second.push_back(pe);
+        }
+    }
+
+    return (int)d18_dijk_path(nodes);
+    /*
+    // now ... try them all!
+    vector<char> best_path;
+    uint32_t best_path_len = ~0u;
+
+    vector<char> path;
+    path.reserve(items.size());
+    path.push_back('@');
+    //d18_walk_all(nodes, path, 0, 0, best_path, best_path_len);
+    cout << "best path: ";
+    for (char n : best_path)
+    {
+        if (n != '@')
+            cout << ", ";
+        cout << n;
+    }
+    cout << endl;
+    return (int)best_path_len;*/
 }
 
 // -------------------------------------------------------------------
@@ -2938,10 +3195,11 @@ int main()
         gday = 18;
     }
 
-    test(8, day18(LOAD(18t)));
-    test(86, day18(LOAD(18t2)));
     test(132, day18(LOAD(18t3)));
-    test(136, day18(LOAD(18t4)));
+    test(86, day18(LOAD(18t2)));
+    test(8, day18(LOAD(18t)));
+    nD(test(136, day18(LOAD(18t4))));
+    nononoD(day18(LOAD(18)));
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();
