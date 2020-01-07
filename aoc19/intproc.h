@@ -180,3 +180,9 @@ public:
         }
     }
 };
+
+
+
+void ip_dump(const string& initial, const IntProcSymbols& syms);
+void ip_disasm(const string& program, const string& filename, const IntProcSymbols& syms);
+

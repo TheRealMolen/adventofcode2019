@@ -148,12 +148,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="day1.cpp" />
+    <ClCompile Include="day12.cpp" />
+    <ClCompile Include="day15.cpp" />
+    <ClCompile Include="day17.cpp" />
+    <ClCompile Include="day18.cpp" />
+    <ClCompile Include="day2.cpp" />
+    <ClCompile Include="day3.cpp" />
+    <ClCompile Include="day4.cpp" />
+    <ClCompile Include="day6.cpp" />
     <ClCompile Include="harness.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="intproc.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="harness.h" />
+    <ClInclude Include="util.h" />
     <ClInclude Include="intproc.h" />
   </ItemGroup>
   <ItemGroup>

@@ -1,11 +1,34 @@
 #include "intproc.h"
 
 #include <iomanip>
+#include <fstream>
 #include <map>
 #include <sstream>
 
 
 const int IntProc::operandmodes[] = { 100, 1000, 10000, 100000 };
+
+
+
+
+void ip_dump(const string& initial, const IntProcSymbols& syms)
+{
+    IntProc ip(initial);
+    ip.dump(syms);
+}
+
+void ip_disasm(const string& program, const string& filename, const IntProcSymbols& syms)
+{
+    string filepath = "data/day" + filename + ".s";
+    ofstream ofs(filepath);
+
+    ofs << "# IntProc disassembly\n#\n\n";
+
+    IntProc ip(program);
+    ip.dump(ofs, syms);
+
+    ofs.close();
+}
 
 
 
