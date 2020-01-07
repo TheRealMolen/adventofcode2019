@@ -1,6 +1,7 @@
 ﻿#include "harness.h"
 
 #include <algorithm>
+#include <boost/circular_buffer.hpp>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -2817,6 +2818,209 @@ int day18(const stringlist& input)
 
 // -------------------------------------------------------------------
 
+void d19_disasm(const string& program)
+{
+    ip_disasm(program, "19", IntProcSymbols(
+    {
+    },
+    {
+        { 282, "handle_coord_oob" },
+    }));
+}
+
+int day19(const string& program)
+{
+    vector<int64_t> compiled;
+    IntProc::parse(program, compiled);
+
+    int64_t total = 0;
+    for (int y = 0; y<50; ++y)
+    {
+        bool foundit = false;
+        //cout << setw(3) << y << ": ";
+        for (int x = 0; x < 50; ++x)
+        {
+            IntProc ip(compiled);
+            ip.set_input({ x,y });
+            ip.run();
+            auto o = ip.read_output();
+            total += o;
+            //cout << (o ? '#' : '.');
+
+            if (o && !foundit)
+                foundit = true;
+            else if (!o && foundit)
+                break;
+        }
+        //cout << endl;
+    }
+
+    return (int)total;
+}
+
+
+ // 0: #.
+ // 1: ..................................................
+ // 2: ..................................................
+ // 3: ..................................................
+ // 4: ..................................................
+ // 5: ..#.
+ // 6: ..................................................
+ // 7: ...#.
+ // 8: ...#.
+ // 9: ....#.
+ //10: ....#.
+ //11: ....##.
+ //12: .....#.
+ //13: .....##.
+ //14: .....##.
+ //15: ......##.
+ //16: ......##.
+ //17: ......###.
+ //18: .......##.
+ //19: .......###.
+ //20: ........##.
+ //21: ........###.
+ //22: ........###.
+ //23: .........###.
+ //24: .........###.
+ //25: .........####.
+ //26: ..........###.                                      -
+ //27: ..........####.                                                                               +
+ //28: ..........####.          ┼
+ //29: ...........####.
+ //30: ...........####.
+ //31: ...........#####.
+ //32: ............####.
+ //33: ............#####.
+ //34: ............#####.
+ //35: .............#####.
+ //36: .............#####.
+ //37: .............######.                                                                                     +
+ //38: ..............#####.
+ //39: ..............######.
+ //40: ...............#####.
+ //41: ...............#####.
+ //42: ...............######.
+ //43: ................#####.
+ //44: ................######.
+ //45: ................######.
+ //46: .................######.                                                    -
+ //47: .................######.
+ //48: .................#######.
+ //49: ..................######.
+
+
+struct d19_row
+{
+    int y;
+    int left;
+    int width;
+};
+
+int day19_2(const string& program, int santa_size = 100)
+{
+    vector<int64_t> compiled;
+    IntProc::parse(program, compiled);
+
+    boost::circular_buffer<d19_row> interesting_rows(santa_size);
+
+    // skip the first bit cos it's complicated
+    int top = 7;
+    int left = 0;
+    int right = 1;
+    int interesting = 0;
+    int indent = 0;
+    for (int y = top; ; ++y)
+    {
+        bool foundit = false;
+
+        //if (interesting > 0)
+        //{
+        //    cout << setw(3) << y << ": ";
+        //    for (int x = indent; x < left; ++x)
+        //        cout << ' ';
+        //}
+
+        for (int x = left; x < right + 20; ++x)
+        {
+            IntProc ip(compiled);
+            ip.set_input({ x,y });
+            ip.run();
+            auto o = ip.read_output();
+
+            //if(interesting)
+            //    cout << (o ? '#' : '.');
+
+            if (o && !foundit)
+            {
+                foundit = true;
+                left = x;
+                right = max(right, left + 1);
+
+                // skip to the other end
+                int skip = right - left;
+                x += skip;
+
+                //if (interesting)
+                //{
+                //    for (int s = 0; s < skip; ++s)
+                //        cout << 's';
+                //}
+            }
+            else if (!o && foundit)
+            {
+                right = x - 1;
+
+                int width = (right - left) + 1;
+                if (!interesting && width >= santa_size)
+                {
+                    interesting = 1;
+                    indent = left - 1;
+                }
+
+                break;
+            }
+        }
+
+        if (interesting)
+        {
+            //cout << endl;
+
+            int width = (right - left) + 1;
+            if (width < santa_size)
+                interesting_rows.clear();
+            else
+                interesting_rows.push_back({ y, left, width });
+
+            // if we have enough rows, we can check whether we've got our location
+            if (interesting_rows.full())
+            {
+                const auto& toprow = interesting_rows.front();
+                const auto& btmrow = interesting_rows.back();
+                _ASSERT(toprow.y < btmrow.y);
+
+                int dleft = btmrow.left - toprow.left;
+                _ASSERT(dleft >= 0);
+
+                if (toprow.width >= santa_size + dleft)
+                {
+                    int santax = toprow.left + dleft;
+                    int santay = toprow.y;
+
+                    return (santax * 10000) + santay;
+                }
+            }
+
+            ++interesting;
+        }
+    }
+
+    return -1;
+}
+
+// -------------------------------------------------------------------
+
 
 
 int main()
@@ -3008,11 +3212,19 @@ int main()
         gday = 18;
     }
 
-    test(132, day18(LOAD(18t3)));
-    test(86, day18(LOAD(18t2)));
     test(8, day18(LOAD(18t)));
+    test(86, day18(LOAD(18t2)));
+    test(132, day18(LOAD(18t3)));
     nD(test(136, day18(LOAD(18t4))));
     nononoD(day18(LOAD(18)));
+
+    // bollocks to part 2...
+    nononoD(day18(LOAD(18)));
+
+
+    gogogo(day19(LOADSTR(19)), 166);
+    gogogo(day19_2(LOADSTR(19)));
+
 
     // animate snow falling behind the characters in the console until someone presses a key
     return twinkleforever();

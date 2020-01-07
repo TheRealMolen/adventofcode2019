@@ -138,6 +138,9 @@
     <Text Include="data\day18.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day19.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">
@@ -147,6 +150,9 @@
       <Filter>DIsasm</Filter>
     </None>
     <None Include="data\day17.s">
+      <Filter>DIsasm</Filter>
+    </None>
+    <None Include="data\day19.s">
       <Filter>DIsasm</Filter>
     </None>
   </ItemGroup>
