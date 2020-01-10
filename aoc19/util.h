@@ -86,7 +86,7 @@ struct pt2d
 template<typename T>
 ostream& operator<<(ostream& os, const pt2d<T>& p)
 {
-    os << '<' << p.x << ", " << p.x << '>';
+    os << '<' << p.x << ", " << p.y << '>';
     return os;
 }
 
