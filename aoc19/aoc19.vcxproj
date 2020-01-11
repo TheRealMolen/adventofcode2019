@@ -154,6 +154,7 @@
     <ClCompile Include="day17.cpp" />
     <ClCompile Include="day18.cpp" />
     <ClCompile Include="day2.cpp" />
+    <ClCompile Include="day20.cpp" />
     <ClCompile Include="day3.cpp" />
     <ClCompile Include="day4.cpp" />
     <ClCompile Include="day6.cpp" />
@@ -196,6 +197,7 @@
     <Text Include="data\day20t.txt" />
     <Text Include="data\day20t2.txt" />
     <Text Include="data\day20t3.txt" />
+    <Text Include="data\day21.txt" />
     <Text Include="data\day3.txt" />
     <Text Include="data\day5.txt" />
     <Text Include="data\day6.txt" />
@@ -212,6 +214,7 @@
     <None Include="data\day15.s" />
     <None Include="data\day17.s" />
     <None Include="data\day19.s" />
+    <None Include="data\day21.s" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

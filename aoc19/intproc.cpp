@@ -237,7 +237,12 @@ string IntProc::display_operand(int opnum, word_t instr_pc, const IntProcSymbols
 
     ostringstream os;
     if (mode == 2)
+    {
+        if (fetched == 0)
+            return "rel";
+
         os << "rel + ";
+    }
 
     auto it_sym = lookup.find(fetched);
     if (it_sym != lookup.end())
@@ -256,6 +261,24 @@ string IntProc::display_operand(int opnum, word_t instr_pc, const IntProcSymbols
             os << "@";
         os << fetched;
     }
+
+    return os.str();
+}
+
+string IntProc::display_intcode(word_t start, int count) const
+{
+    const size_t intcode_col_width = 6 + 5 + 4 + 4;
+
+    ostringstream os;
+    for (word_t ix = start; ix < start + count; ++ix)
+    {
+        if (ix != start)
+            os << ',';
+        os << fetch(ix);
+    }
+
+    for (int64_t pad = intcode_col_width - os.str().size(); pad > 0; --pad)
+        os << ' ';
 
     return os.str();
 }
@@ -299,6 +322,8 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
             switch (opcode)
             {
             case 1: // add
+                os << display_intcode(pc, 4) << ' ';
+
                 // this is often used as mov
                 if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) == 0)
                 {
@@ -314,6 +339,8 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
                 break;
 
             case 2: // mul
+                os << display_intcode(pc, 4) << ' ';
+
                 // this is often used as a mov
                 if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) == 1)
                 {
@@ -329,17 +356,23 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
                 break;
 
             case 3: // in
+                os << display_intcode(pc, 2) << ' ';
+
                 os << "in  " << display_operand(0, pc, sym, true);
                 pc += 2;
                 break;
 
             case 4: // out
+                os << display_intcode(pc, 2) << ' ';
+
                 os << "out " << display_operand(0, pc, sym, true);
                 pc += 2;
                 break;
 
             case 5: // jnz
             {
+                os << display_intcode(pc, 3) << ' ';
+
                 // sometimes this is a straight jmp
                 if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) != 0)
                 {
@@ -364,6 +397,8 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
 
             case 6: // jz
             {
+                os << display_intcode(pc, 3) << ' ';
+
                 // sometimes this is a straight jmp
                 if (calc_op_mode(instr, 0) == 1 && fetch(pc + 1) == 0)
                 {
@@ -387,21 +422,29 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
             }
 
             case 7: // slt
+                os << display_intcode(pc, 4) << ' ';
+
                 os << "slt " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true);
                 pc += 4;
                 break;
 
             case 8: // seq
+                os << display_intcode(pc, 4) << ' ';
+
                 os << "seq " << display_operand(0, pc, sym, true) << ", " << display_operand(1, pc, sym, true) << ", " << display_operand(2, pc, sym, true);
                 pc += 4;
                 break;
 
             case 9: // arb
+                os << display_intcode(pc, 2) << ' ';
+
                 os << "arb " << fetch(pc + 1);
                 pc += 2;
                 break;
 
             case 99: // hlt
+                os << display_intcode(pc, 1) << ' ';
+
                 os << "hlt";
                 pc += 1;
                 keeprunning = false;
@@ -434,7 +477,7 @@ void IntProc::dump(ostream& out, const IntProcSymbols& sym) const
             os.str("");
             os.clear();
 
-            os << setw(4) << a << "    ";
+            os << setw(4) << a << "  " << display_intcode(a, 1) << ' ';
 
             auto itvar = sym.variables.find(a);
             if (itvar != sym.variables.end())

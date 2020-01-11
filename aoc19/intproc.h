@@ -29,6 +29,7 @@ private:
     static const char* get_mode_str(word_t instr, int opnum);
 
     string display_operand(int opnum, word_t instr_pc, const IntProcSymbols& sym, bool is_data) const;
+    string display_intcode(word_t start, int count) const;
 
 
     word_t fetch(word_t addr, int mode = 0) const

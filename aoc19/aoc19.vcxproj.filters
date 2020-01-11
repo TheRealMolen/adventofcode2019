@@ -59,6 +59,9 @@
     <ClCompile Include="day18.cpp">
       <Filter>Source Files\days</Filter>
     </ClCompile>
+    <ClCompile Include="day20.cpp">
+      <Filter>Source Files\days</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="harness.h">
@@ -189,6 +192,9 @@
     <Text Include="data\day20t3.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="data\day21.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md">
@@ -201,6 +207,9 @@
       <Filter>DIsasm</Filter>
     </None>
     <None Include="data\day19.s">
+      <Filter>DIsasm</Filter>
+    </None>
+    <None Include="data\day21.s">
       <Filter>DIsasm</Filter>
     </None>
   </ItemGroup>

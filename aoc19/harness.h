@@ -45,6 +45,12 @@ inline ostream&     GREEN(ostream& _Ostr)
     SetConsoleTextAttribute(hStdOut, FOREGROUND_GREEN);
     return (_Ostr);
 }
+inline ostream&     LIGHT_GREEN(ostream& _Ostr)
+{
+    _Ostr.flush();
+    SetConsoleTextAttribute(hStdOut, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+    return (_Ostr);
+}
 inline ostream&     YELLOW(ostream& _Ostr)
 {
     _Ostr.flush();
