@@ -1190,98 +1190,8 @@ int day21(const string& program)
     return ip_run_ascii(program, move(input_os.str()), { {1503, 'o'} });
 }
 
-int day21_2(const string& program)
+void d21_validate_logic()
 {
-    //         0 10  1       ~B & ~E & D & H  =>  ~(B|E) & D  => ~( B | E | ~D) & H
-    //        ABCDEFGHI
-    // #####.##.##o#.###
-    //       ^   x   v
-    //        ^   %
-    //               
-    //     #####.#.#.o.#.###
-
-    for (int x = 0; x < 64; ++x)
-    {
-        bool C = (x & 1) != 0;
-        bool E = (x & 2) != 0;
-        bool F = (x & 4) != 0;
-        bool G = (x & 8) != 0;
-        bool H = (x & 16) != 0;
-        bool I = (x & 32) != 0;
-        bool orig = (!C && !F && H) || (!C && !E && F && !G && H) || (!C && H && !I);
-        //                          => H & ~(C | (F & I & (E | G))
-        bool test = (H && !(C || (F && I && (E || G))));
-        _ASSERT(orig == test);
-    }
-    {
-        bool C = false;
-        bool E = false;
-        bool F = false;
-        bool G = true;
-        bool H = true;
-        bool test = (H && !(C || (F && (E || G))));
-        _ASSERT(test);
-    }
-
-    //      0  0 1           ~C & ~F & H  =>    ~(C | F) & H    => ~( C | F | ~H )
-    //    ABCDEFGHI
-    // #####.#.o########
-    //   ^   x   v
-    //     ^   %    
-    //    ^   %
-    //  ^   %
-
-    //      0x 0 1           ~C & ~F & H            =>    ~(C | F) & H    => ~( C | F | ~H )
-    //      0x0101           ~C & ~E & F & ~G & H
-    //      0x   10          ~C & H & ~I
-    //                          => ~C & H & (~F | (~E & ~G) | ~I)
-    //                          => ~C & H & (~F | ~(E | G) | ~I)
-    //                          => H & ~C & ~(F & (E | G) & I)
-    //                          => H & ~(C | (F & I & (E | G))
-
-    //    ABCDEFGHI
-    // #####.#.#o##..###
-    //   ^   x   x   v
-    //  ^   %
-    //    ^   %
-    //     ^   x   %
-
-    //      0x   10
-    //    ABCDEFGHI
-    // #####.###o#..####
-    //   ^   x   x   v
-    //    ^   x   %
-    //     ^   x   %
-
-    //                      => ~B & D & ~E & H
-    //      0 x  010        => ~B & D & ~G & H & ~I
-    //                          => D & ~B & H & (~E | (~G & ~I))
-    //                          => D & ~B & H & (~E | ~(G | I))
-    //                          => D & ~B & H & ~(E & (G | I))
-    //                          => D & H & ~B & ~(E & (G | I))
-    //                          => D & H & ~(B | (E & (G | I)))
-    //     ABCDEFGHI
-    // #####.###o.#..###
-    //    ^   x   x   v
-    //  ^   %
-    //   ^   x   %
-    //     ^   x   %
-
-    //      0 1   10        => ~B & D & H & ~I
-    //     ABCDEFGHI
-    // #####.###.##o.###
-    //    ^   x   x   v
-    //   ^   x   x   v
-    //     ^   x   %
-
-    //    combiv2:   ~A                                   |
-    //              (~B &     D & ~E &          H)        |
-    //              (~B &     D &          ~G & H & ~I)   |
-    //              (    ~C & D &     ~F &      H)        |
-    //              (    ~C & D & ~E & F & ~G & H)        |
-    //              (    ~C & D &               H & ~I)
-
-    // validate the tweaking!
     for (int x = 0; x < 512; ++x)
     {
         bool A = (x & 1) != 0;
@@ -1342,8 +1252,58 @@ int day21_2(const string& program)
         J |= T; // OR T J
         _ASSERT(orig == J);
     }
+}
 
-#if 1
+int day21_2(const string& program)
+{
+    //         0 10  1       ~B & ~E & D & H  =>  ~(B|E) & D  => ~( B | E | ~D) & H
+    //        ABCDEFGHI
+    // #####.##.##o#.###
+    //       ^   x   v
+    //        ^   %
+
+    //      0 1   10        => ~B & D & H & ~I
+    //     ABCDEFGHI
+    // #####.###.##o.###
+    //    ^   x   x   v
+    //   ^   x   x   v
+    //     ^   x   %
+
+    //      0  0 1           ~C & ~F & H  =>    ~(C | F) & H    => ~( C | F | ~H )
+    //    ABCDEFGHI
+    // #####.#.o########
+    //   ^   x   v
+    //     ^   %    
+    //    ^   %
+    //  ^   %
+
+    //      0x 0 1           ~C & ~F & H            =>    ~(C | F) & H    => ~( C | F | ~H )
+    //      0x0101           ~C & ~E & F & ~G & H
+    //      0x   10          ~C & H & ~I
+
+    //                      => ~B & D & ~E & H
+    //      0 x  010        => ~B & D & ~G & H & ~I
+    //                          => D & ~B & H & (~E | (~G & ~I))
+    //                          => D & ~B & H & (~E | ~(G | I))
+    //                          => D & ~B & H & ~(E & (G | I))
+    //                          => D & H & ~B & ~(E & (G | I))
+    //                          => D & H & ~(B | (E & (G | I)))
+
+    //    combiv2:   ~A                                   |
+    //              (~B &     D & ~E &          H)        |
+    //              (~B &     D &          ~G & H & ~I)   |
+    //              (    ~C & D &     ~F &      H)        |
+    //              (    ~C & D & ~E & F & ~G & H)        |
+    //              (    ~C & D &               H & ~I)
+
+    //    ...   :   ~A |
+    //              (D & H &
+    //               (~B &     ~E          )        |
+    //               (~B &              ~G  & ~I)   |
+    //               (    ~C &     ~F &    )        |
+    //               (    ~C & ~E & F & ~G )        |
+    //               (    ~C &              & ~I) )
+
 
     string springscript =
         // (C | (F & I & (E | G)))
@@ -1369,44 +1329,9 @@ int day21_2(const string& program)
          "OR T J\n"
 
         "RUN\n";
-#else
-   
-    ostringstream input_os;
-    input_os <<
-        // jump if moving two steps would mean we have to jump into a hole
-        // v2:  H & ~(C | (F & I & (E | G))
-        "OR E T\n"
-        "OR G T\n"
-        "AND F T\n"
-        "AND I T\n"
-        "OR C T\n"
-        "NOT T J\n"
-        "AND H J\n"
-
-        // jump if moving one step forwards would mean we have to jump into a hole
-        // NOTE -> we always check D at the end, so can omit that here
-        // ~( B | E | ~D) & H  ==>  ~( B | E | ~H)
-        "NOT H T\n"
-        "OR B T\n"
-        "OR E T\n"
-        "NOT T T\n"
-        "OR T J\n"
-
-        // don't jump into a hole!
-        "AND D J\n"
-
-        // jump if we're about to fall into a hole
-        "NOT A T\n"
-        "OR T J\n"
-
-        "RUN\n";
-
-    string springscript = input_os.str();
-#endif
 
     // change our little droid from @ to o so it's cuter
     auto result = ip_run_ascii(program, springscript, { { 1503, 'o' } });
-    cout << "        prev best was: " << 733763282 << endl;
     return result;
 }
 
