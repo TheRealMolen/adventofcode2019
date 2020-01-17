@@ -887,7 +887,7 @@ string day16(const string& input, int ncycles)
     return finish;
 }
 
-string day16_2(const string& input)
+string day16_2_nope(const string& input)
 {
     // Unsurprisingly, brute force is not a thing
     //  THINKS: the point our 8 char sequence starts is FAR (5,970,443 through a sequence that's 650x10,000 = 6,500,000 long)
@@ -964,6 +964,54 @@ string day16_2(const string& input)
 
     ostringstream os;
     for (auto it = curr.begin() + output_offset; it != curr.begin() + (output_offset + 8); ++it)
+        os << (char)(*it + '0');
+    return os.str();
+}
+
+
+string day16_2(const string& input)
+{
+    size_t numcycles = 100;
+    size_t numrepeats = 10000;
+
+    size_t wavelength = input.size();
+    size_t total_len = wavelength * numrepeats;
+
+    // we do this backwards, and in heels
+    string rin(input);
+    reverse(rin.begin(), rin.end());
+
+    string off_str = input.substr(0, 7);
+    size_t offset = stoul(off_str);
+
+    size_t interesting_len = total_len - offset;
+    vector<uint8_t> rdigits;
+    rdigits.reserve(interesting_len + 100);
+
+    // initial populate
+    while (rdigits.size() + wavelength < interesting_len)
+        copy(rin.begin(), rin.end(), back_inserter(rdigits));
+    for (auto it_in = rin.begin(); rdigits.size() < interesting_len; ++it_in)
+        rdigits.push_back(*it_in);
+
+    vector<uint8_t> nrdigits(interesting_len, 0);
+    for (size_t cycle = 0; cycle < numcycles; ++cycle)
+    {
+        nrdigits.clear();
+        auto it_r = rdigits.begin();
+
+        nrdigits.push_back(*(it_r++));
+        for (; it_r != rdigits.end(); ++it_r)
+            nrdigits.push_back((nrdigits.back() + *it_r) % 10);
+
+        rdigits.swap(nrdigits);
+    }
+
+    vector<uint8_t> result(rdigits.end() - 8, rdigits.end());
+    reverse(result.begin(), result.end());
+
+    ostringstream os;
+    for (auto it = result.begin(); it != result.begin() + 8; ++it)
         os << (char)(*it + '0');
     return os.str();
 }
@@ -1211,6 +1259,7 @@ void d21_validate_logic()
         //              (    ~C & D & ~E & F & ~G & H)        |
         //              (    ~C & D &               H & ~I)
 
+#ifdef _DEBUG 
         bool orig = !A ||
             (!B && D && !E && H) ||
             (!B && D && !G && H && !I) ||
@@ -1221,6 +1270,7 @@ void d21_validate_logic()
         // ~A | (D & H & ~((B | (E & (G | I))) & (C | (F & I & (E | G)))))
         bool test = !A || (D && H && !((B || (E && (G || I))) && (C || (F && I && (E || G)))));
         _ASSERT(orig == test);
+#endif
 
         bool T = false;
         bool J = false;
@@ -1336,6 +1386,144 @@ int day21_2(const string& program)
 }
 
 // -------------------------------------------------------------------
+typedef vector<int64_t> deck_t;
+
+deck_t& d22_deal_into_new_stack(deck_t& deck)
+{
+    reverse(deck.begin(), deck.end());
+    return deck;
+}
+
+deck_t& d22_cut(deck_t& deck, int cut_point)
+{
+    if (cut_point < 0)
+        cut_point += (int)deck.size();
+    _ASSERT(cut_point >= 0);
+
+    rotate(deck.begin(), deck.begin() + cut_point, deck.end());
+
+    return deck;
+}
+
+deck_t d22_deal_with_increment(deck_t& deck, int inc, deck_t& work)
+{
+    _ASSERT(work.size() == deck.size());
+    deck_t& orig = work;
+    orig.swap(deck);
+
+    auto ncards = deck.size();
+    for (size_t i = 0, o = 0; i < ncards; ++i)
+    {
+        deck[o] = orig[i];
+
+        o += inc;
+        if (o >= ncards)
+            o -= ncards;
+    }
+
+    return deck;
+}
+
+string d22_print_deck(const deck_t& deck)
+{
+    ostringstream os;
+    for (auto& card : deck)
+    {
+        if (card != deck.front())
+            os << ' ';
+        os << card;
+    }
+    return os.str();
+}
+
+
+deck_t& d22_shuffle(deck_t& deck, const stringlist& input)
+{
+    deck_t workspace(deck.size(), 0);
+
+    for (auto& line : input)
+    {
+        // cut 6
+        if (line[0] == 'c')
+        {
+            int cut_point = atoi(line.c_str() + 4);
+            d22_cut(deck, cut_point);
+        }
+        // deal with increment 7
+        else if (line[5] == 'w')
+        {
+            int inc = atoi(line.c_str() + 20);
+            d22_deal_with_increment(deck, inc, workspace);
+        }
+        // deal into new stack
+        else
+        {
+            _ASSERT(line[5] == 'i');
+            d22_deal_into_new_stack(deck);
+        }
+    }
+
+    return deck;
+}
+
+
+template<uint64_t numcards>
+uint64_t d22_unshuffle__22ta(uint64_t end_slot)
+{
+    uint64_t slot = end_slot;
+
+    // NOTE: reverse shuffle def!
+    //deal into new stack
+    slot = numcards - slot;
+
+    //deal into new stack
+    slot = numcards - slot;
+
+    //deal with increment 7
+}
+
+
+void d22_test()
+{
+    deck_t deck{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    deck_t workspace(deck.size(), 0);
+
+    test<string>("0 1 2 3 4 5 6 7 8 9", d22_print_deck(deck));
+    test<string>("9 8 7 6 5 4 3 2 1 0", d22_print_deck(d22_deal_into_new_stack(deck)));
+    test<string>("0 1 2 3 4 5 6 7 8 9", d22_print_deck(d22_deal_into_new_stack(deck)));
+
+    test<string>("3 4 5 6 7 8 9 0 1 2", d22_print_deck(d22_cut(deck, 3)));
+    sort(deck.begin(), deck.end());
+    test<string>("6 7 8 9 0 1 2 3 4 5", d22_print_deck(d22_cut(deck, -4)));
+    sort(deck.begin(), deck.end());
+
+    test<string>("0 7 4 1 8 5 2 9 6 3", d22_print_deck(d22_deal_with_increment(deck, 3, workspace)));
+    sort(deck.begin(), deck.end());
+
+    test<string>("0 3 6 9 2 5 8 1 4 7", d22_print_deck(d22_shuffle(deck, READ("deal with increment 7\ndeal into new stack\ndeal into new stack"))));
+    sort(deck.begin(), deck.end());
+    test<string>("3 0 7 4 1 8 5 2 9 6", d22_print_deck(d22_shuffle(deck, READ("cut 6\ndeal with increment 7\ndeal into new stack"))));
+    sort(deck.begin(), deck.end());
+    test<string>("6 3 0 7 4 1 8 5 2 9", d22_print_deck(d22_shuffle(deck, READ("deal with increment 7\ndeal with increment 9\ncut -2"))));
+    sort(deck.begin(), deck.end());
+    test<string>("9 2 5 8 1 4 7 0 3 6", d22_print_deck(d22_shuffle(deck, LOAD(22t))));
+    sort(deck.begin(), deck.end());
+}
+
+int day22(const stringlist& input, int size, int your_card = 2019)
+{
+    deck_t deck(size);
+    iota(deck.begin(), deck.end(), 0);
+    deck_t workspace(size, 0);
+
+    d22_shuffle(deck, input);
+
+    auto it_found = find(deck.begin(), deck.end(), your_card);
+    return (int)distance(deck.begin(), it_found);
+}
+
+
+// -------------------------------------------------------------------
 
 
 int main()
@@ -1350,7 +1538,7 @@ int main()
     return 1;
 #endif
 
-    bool skiptotheend = false;
+    bool skiptotheend = true;
 #ifdef _DEBUG
     skiptotheend = true;
 #endif
@@ -1545,15 +1733,23 @@ int main()
         test(396, day20_2(LOAD(20t3)));
         //test(-1, day20_2(LOAD(20t2)));    // docs say there is no path, but this code finds (a very long) one - 3,866,354 steps
         nononoD(day20_2(LOAD(20)));
+
+
+        gogogo(day21(LOADSTR(21)));
+        gogogo(day21_2(LOADSTR(21)));
     }
     else
     {
-        gday = 21;
+        gday = 16;
+        gpart = 2;
     }
 
+    gogogo(day16_2(LOADSTR(16)));
 
-    gogogo(day21(LOADSTR(21)));
-    gogogo(day21_2(LOADSTR(21)));
+
+    d22_test();
+    gogogo(day22(LOAD(22), 10007, 2019), 4086);
+    //gogogo(day22_2(LOAD(22), 119315717514047ll, 101741582076661ll, 2020));
 
 
     // animate snow falling behind the characters in the console until someone presses a key
